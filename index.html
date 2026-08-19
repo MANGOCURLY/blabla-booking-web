@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스파이크 ① — fetch 연결 테스트</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 24px; max-width: 720px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; opacity: .7; font-size: 14px; }
+  button { font: inherit; padding: 12px 20px; border-radius: 8px;
+           border: 1px solid #888; background: #f5f5f5; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #verdict { margin: 20px 0; padding: 16px; border-radius: 8px;
+             border: 2px solid #ccc; font-weight: 600; }
+  .pass { border-color: #2e7d32 !important; background: #e8f5e9; color: #1b5e20; }
+  .fail { border-color: #c62828 !important; background: #ffebee; color: #b71c1c; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd;
+           vertical-align: top; word-break: break-all; }
+  th { width: 34%; font-weight: 600; opacity: .75; }
+  pre { background: #f5f5f5; padding: 12px; border-radius: 6px;
+        overflow-x: auto; font-size: 13px; }
+  @media (prefers-color-scheme: dark) {
+    button, pre { background: #2a2a2a; }
+    .pass { background: #14301a; color: #a5d6a7; }
+    .fail { background: #3a1416; color: #ef9a9a; }
+    th, td { border-color: #444; }
+  }
+</style>
+</head>
+<body>
+
+<h1>스파이크 ① — fetch 연결 테스트</h1>
+<p class="sub">
+  정적 사이트에서 Apps Script <code>/exec</code> 로 <code>{action:'ping'}</code> 을 보내고
+  <code>{ok:true}</code> 가 돌아오는지 확인합니다.
+</p>
+
+<button id="run">다시 보내기</button>
+
+<div id="verdict">준비 중…</div>
+
+<!-- 실패 원인 분리용. fetch 가 실패하면 계정 문제인지 CORS 문제인지 화면만으로는
+     구분되지 않는다(계정 선택 페이지에는 CORS 헤더가 없어 둘 다 똑같이 throw 된다).
+     이 링크를 새 탭에서 직접 열어보면 갈린다. -->
+<p style="font-size:14px">
+  <a id="direct" href="#" target="_blank" rel="noopener">↗ /exec 을 새 탭에서 직접 열기</a>
+  <br><span style="opacity:.7">
+    실패했을 때만 눌러보세요 —
+    <b>「현재 파일을 열 수 없습니다」</b>가 뜨면 <b>계정 문제</b>(설계 폐기),
+    <b>JSON 이 정상으로 보이면</b> <b>CORS 문제</b>(고칠 수 있음)입니다.
+  </span>
+</p>
+
+<table id="facts"></table>
+
+<h2 style="font-size:16px;margin:24px 0 8px">응답 본문</h2>
+<pre id="body">—</pre>
+
+<script>
+// Apps Script 웹앱 주소. 비밀값이 아니라 학생 브라우저가 어차피 보는 주소다.
+var API_URL = 'https://script.google.com/macros/s/AKfycbxhg67JQXuHpt7-eus-tEDPr2BldZr0srRQUdLkb52ywxsVeedC7PQASNUhNM_w-nU_/exec';
+
+document.getElementById('direct').href = API_URL;
+
+var btn = document.getElementById('run');
+var verdictEl = document.getElementById('verdict');
+var factsEl = document.getElementById('facts');
+var bodyEl = document.getElementById('body');
+
+function esc(v) {
+  return String(v).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function facts(rows) {
+  factsEl.innerHTML = rows.map(function (r) {
+    return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
+  }).join('');
+}
+
+function verdict(pass, text) {
+  verdictEl.className = pass ? 'pass' : 'fail';
+  verdictEl.textContent = (pass ? '✅ 통과 — ' : '❌ 실패 — ') + text;
+}
+
+function run() {
+  btn.disabled = true;
+  verdictEl.className = '';
+  verdictEl.textContent = '보내는 중…';
+  bodyEl.textContent = '—';
+
+  var started = new Date().getTime();
+  var res = null;
+
+  // Content-Type 을 text/plain 으로 보내는 이유: application/json 은 CORS preflight(OPTIONS)를
+  // 유발하는데 Apps Script 는 OPTIONS 를 처리하지 못한다. text/plain 은 단순 요청이라 preflight 가 없다.
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'ping' })
+  }).then(function (r) {
+    res = r;
+    return r.text();
+  }).then(function (text) {
+    var ms = new Date().getTime() - started;
+    var parsed = null;
+    try { parsed = JSON.parse(text); } catch (e) { /* JSON 이 아니면 그대로 보여준다 */ }
+
+    facts([
+      ['이 페이지 주소(Origin)', location.origin],
+      ['HTTP 상태', res.status + ' ' + res.statusText],
+      ['리다이렉트 발생', res.redirected ? '예' : '아니오'],
+      ['최종 도착 주소', res.url],
+      ['응답 종류(res.type)', res.type],
+      ['소요 시간', ms + ' ms'],
+      ['서버 빌드 태그', parsed && parsed.build ? parsed.build : '(없음)'],
+      ['브라우저', navigator.userAgent]
+    ]);
+    bodyEl.textContent = text.slice(0, 2000);
+
+    if (parsed && parsed.ok === true) {
+      verdict(true, '구글 계정 상태와 무관하게 응답이 왔습니다. 설계 전제가 성립합니다.');
+    } else if (/accounts\.google\.com/.test(res.url)) {
+      verdict(false, '계정 선택 페이지로 튕겼습니다. 이 설계는 성립하지 않습니다.');
+    } else {
+      verdict(false, 'JSON 봉투(ok:true)가 오지 않았습니다. 아래 본문을 확인하세요.');
+    }
+  }).catch(function (err) {
+    facts([
+      ['이 페이지 주소(Origin)', location.origin],
+      ['오류', String(err)],
+      ['브라우저', navigator.userAgent]
+    ]);
+    verdict(false, 'fetch 가 실패했습니다. 위 링크를 새 탭에서 열어 계정 문제인지 CORS 문제인지 가르고, 브라우저 콘솔도 함께 보세요.');
+  }).then(function () {
+    btn.disabled = false;
+  });
+}
+
+btn.addEventListener('click', run);
+run();
+</script>
+
+</body>
+</html>
