@@ -126,8 +126,7 @@ function run() {
       ['defaultLang', d ? String(d.defaultLang) : '(없음)'],
       ['브라우저', navigator.userAgent]
     ]);
-    bodyEl.textContent = text.slice(0, 1200) + (text.length > 1200 ? '
-… (' + text.length + ' bytes)' : '');
+    bodyEl.textContent = text.slice(0, 1200) + (text.length > 1200 ? ' … (' + text.length + ' bytes)' : '');
 
     if (parsed && parsed.ok === true && d && d.i18n && d.i18n.ko && d.i18n.en && d.i18n.fr) {
       verdict(true, 'boot 액션이 3개 언어 문구표를 실어 보냈습니다. 4단계로 넘어갈 수 있습니다.');
