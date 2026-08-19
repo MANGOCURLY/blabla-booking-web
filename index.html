@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>스파이크 ① — fetch 연결 테스트</title>
+<title>체크포인트 — boot 액션 확인</title>
 <style>
   :root { color-scheme: light dark; }
   body { font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -33,10 +33,9 @@
 </head>
 <body>
 
-<h1>스파이크 ① — fetch 연결 테스트</h1>
+<h1>체크포인트 — boot 액션 확인</h1>
 <p class="sub">
-  정적 사이트에서 Apps Script <code>/exec</code> 로 <code>{action:'ping'}</code> 을 보내고
-  <code>{ok:true}</code> 가 돌아오는지 확인합니다.
+  정적 사이트에서 <code>{action:'boot'}</code> 을 보내고 i18n 문구표가 실제로 오는지 확인합니다.
 </p>
 
 <button id="run">다시 보내기</button>
@@ -102,7 +101,7 @@ function run() {
   fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'ping' })
+    body: JSON.stringify({ action: 'boot' })
   }).then(function (r) {
     res = r;
     return r.text();
@@ -110,6 +109,7 @@ function run() {
     var ms = new Date().getTime() - started;
     var parsed = null;
     try { parsed = JSON.parse(text); } catch (e) { /* JSON 이 아니면 그대로 보여준다 */ }
+    var d = parsed && parsed.data;
 
     facts([
       ['이 페이지 주소(Origin)', location.origin],
@@ -119,12 +119,20 @@ function run() {
       ['응답 종류(res.type)', res.type],
       ['소요 시간', ms + ' ms'],
       ['서버 빌드 태그', parsed && parsed.build ? parsed.build : '(없음)'],
+      ['응답 크기', (text.length / 1024).toFixed(1) + ' KB'],
+      ['i18n 언어', d ? Object.keys(d.i18n || {}).join(' · ') || '(없음)' : '(없음)'],
+      ['ko 문구 개수', d && d.i18n && d.i18n.ko ? Object.keys(d.i18n.ko).length + '개' : '(없음)'],
+      ['ko 샘플', d && d.i18n && d.i18n.ko ? (d.i18n.ko.title || d.i18n.ko.login_title || JSON.stringify(d.i18n.ko).slice(0, 60)) : '(없음)'],
+      ['defaultLang', d ? String(d.defaultLang) : '(없음)'],
       ['브라우저', navigator.userAgent]
     ]);
-    bodyEl.textContent = text.slice(0, 2000);
+    bodyEl.textContent = text.slice(0, 1200) + (text.length > 1200 ? '
+… (' + text.length + ' bytes)' : '');
 
-    if (parsed && parsed.ok === true) {
-      verdict(true, '구글 계정 상태와 무관하게 응답이 왔습니다. 설계 전제가 성립합니다.');
+    if (parsed && parsed.ok === true && d && d.i18n && d.i18n.ko && d.i18n.en && d.i18n.fr) {
+      verdict(true, 'boot 액션이 3개 언어 문구표를 실어 보냈습니다. 4단계로 넘어갈 수 있습니다.');
+    } else if (parsed && parsed.ok === true) {
+      verdict(false, '응답은 왔지만 i18n 이 비어 있습니다. 아래 본문을 확인하세요.');
     } else if (/accounts\.google\.com/.test(res.url)) {
       verdict(false, '계정 선택 페이지로 튕겼습니다. 이 설계는 성립하지 않습니다.');
     } else {
