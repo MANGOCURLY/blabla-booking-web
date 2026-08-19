@@ -1,157 +1,1768 @@
-<!doctype html>
-<html lang="ko">
+<!DOCTYPE html>
+<!-- index.html — Blabla Korea 예약 시스템 v1
+     Responsibility (SPEC §8.1): booking screen.
+       header + language toggle + remaining-credits chip; private/trial tabs;
+       weekly nav + timezone dropdown; 7-day free-slot grid; confirm modal;
+       confirmation screen with Meet link.
+     Server calls (Booking.gs/Availability.gs): getCreditsSummary, getFreeSlots,
+       bookPrivate, bookTrial, requestMagicLink. -->
+<html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>체크포인트 — boot 액션 확인</title>
-<style>
-  :root { color-scheme: light dark; }
-  body { font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
-         margin: 0; padding: 24px; max-width: 720px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  p.sub { margin: 0 0 20px; opacity: .7; font-size: 14px; }
-  button { font: inherit; padding: 12px 20px; border-radius: 8px;
-           border: 1px solid #888; background: #f5f5f5; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: default; }
-  #verdict { margin: 20px 0; padding: 16px; border-radius: 8px;
-             border: 2px solid #ccc; font-weight: 600; }
-  .pass { border-color: #2e7d32 !important; background: #e8f5e9; color: #1b5e20; }
-  .fail { border-color: #c62828 !important; background: #ffebee; color: #b71c1c; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd;
-           vertical-align: top; word-break: break-all; }
-  th { width: 34%; font-weight: 600; opacity: .75; }
-  pre { background: #f5f5f5; padding: 12px; border-radius: 6px;
-        overflow-x: auto; font-size: 13px; }
-  @media (prefers-color-scheme: dark) {
-    button, pre { background: #2a2a2a; }
-    .pass { background: #14301a; color: #a5d6a7; }
-    .fail { background: #3a1416; color: #ef9a9a; }
-    th, td { border-color: #444; }
-  }
-</style>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Blabla Korea — 예약</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Almarai:wght@300;400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- BOOT 은 app.js 가 boot 액션으로 받아온다 (예전엔 여기에 서버가 심어줬다) -->
 
-<h1>체크포인트 — boot 액션 확인</h1>
-<p class="sub">
-  정적 사이트에서 <code>{action:'boot'}</code> 을 보내고 i18n 문구표가 실제로 오는지 확인합니다.
-</p>
+  <header class="app">
+    <div>
+      <div class="brand" id="brand">Blabla Korea</div>
+    </div>
+    <div class="header-right">
+      <!-- 보카 사이트 바로가기 (별도 사이트라 새 탭으로 연다) -->
+      <a class="btn ghost sm" id="vocaLink" target="_blank" rel="noopener"
+         href="https://mangocurly.github.io/blabla-korean-voca-bank"></a>
+      <span class="chip hidden" id="creditChip"></span>
+      <div class="lang-toggle" id="langToggle"></div>
+    </div>
+  </header>
 
-<button id="run">다시 보내기</button>
+  <div class="wrap">
+    <!-- LOGIN — STEP 1: 이메일 입력 -->
+    <section id="loginView" class="login-box">
+      <h1 id="loginTitle"></h1>
+      <p class="muted" id="loginHint"></p>
+      <input type="email" id="emailInput" placeholder="" autocomplete="email">
+      <button class="btn" id="sendLinkBtn" style="width:100%"></button>
+      <p class="center" style="color:var(--warn)" id="authErr"></p>
 
-<div id="verdict">준비 중…</div>
+      <!-- 무료 체험은 로그인 없이 진행되는 별도 흐름 -->
+      <hr style="border:0;border-top:1px solid var(--line);margin:24px 0">
+      <button class="btn secondary" id="trialCta" style="width:100%"></button>
+    </section>
 
-<!-- 실패 원인 분리용. fetch 가 실패하면 계정 문제인지 CORS 문제인지 화면만으로는
-     구분되지 않는다(계정 선택 페이지에는 CORS 헤더가 없어 둘 다 똑같이 throw 된다).
-     이 링크를 새 탭에서 직접 열어보면 갈린다. -->
-<p style="font-size:14px">
-  <a id="direct" href="#" target="_blank" rel="noopener">↗ /exec 을 새 탭에서 직접 열기</a>
-  <br><span style="opacity:.7">
-    실패했을 때만 눌러보세요 —
-    <b>「현재 파일을 열 수 없습니다」</b>가 뜨면 <b>계정 문제</b>(설계 폐기),
-    <b>JSON 이 정상으로 보이면</b> <b>CORS 문제</b>(고칠 수 있음)입니다.
-  </span>
-</p>
+    <!-- FREE TRIAL — 공개 예약 (로그인 불필요). Calendly 스타일 2단 레이아웃. -->
+    <section id="trialView" class="hidden">
+      <p><button class="btn ghost sm" id="trialBackLogin"></button></p>
+      <div class="trial-wrap">
+        <aside class="trial-side">
+          <div class="brand" style="font-size:1rem">Blabla Korea</div>
+          <h2 id="trialHead" style="margin-top:6px"></h2>
+          <p class="muted"><span class="pill" id="trialDur"></span></p>
+          <p class="muted" id="trialMeetNote" style="font-size:.82rem"></p>
+          <p class="muted" id="trialDesc" style="margin-top:14px;line-height:1.6"></p>
+        </aside>
 
-<table id="facts"></table>
+        <div class="trial-main">
+          <!-- STEP 1: 날짜/시간 -->
+          <div id="trialStep1">
+            <h3 id="trialPickDate"></h3>
+            <div class="cal-row">
+              <div class="cal-box">
+                <div class="cal-nav">
+                  <button class="btn ghost sm" id="calPrev">‹</button>
+                  <span id="calMonth"></span>
+                  <button class="btn ghost sm" id="calNext">›</button>
+                </div>
+                <div id="calGrid"></div>
+                <p class="muted" style="font-size:.8rem;margin-top:10px">
+                  <span id="trialTzLabel"></span> <select id="trialTz"></select>
+                </p>
+              </div>
+              <div class="cal-times">
+                <h4 id="calDayLabel" style="margin:0 0 8px"></h4>
+                <div id="calTimes"></div>
+              </div>
+            </div>
+          </div>
 
-<h2 style="font-size:16px;margin:24px 0 8px">응답 본문</h2>
-<pre id="body">—</pre>
+          <!-- STEP 2: 정보 입력 -->
+          <div id="trialStep2" class="hidden">
+            <p><button class="btn ghost sm" id="trialBackCal">‹</button></p>
+            <p class="when" id="trialChosen" style="font-weight:700"></p>
+            <h3 id="trialDetails"></h3>
+            <label class="tf-label" id="lblName"></label>
+            <input type="text" id="tfName" class="tf">
+            <label class="tf-label" id="lblEmail"></label>
+            <input type="email" id="tfEmail" class="tf" autocomplete="email">
+            <label class="tf-label" id="lblPhone"></label>
+            <input type="tel" id="tfPhone" class="tf" autocomplete="tel">
+            <label class="tf-label" id="lblNote"></label>
+            <textarea id="tfNote" class="tf" rows="4"></textarea>
+            <button class="btn" id="trialSubmit" style="width:100%;margin-top:14px"></button>
+            <p class="center" style="color:var(--warn)" id="trialErr"></p>
+          </div>
 
-<script>
-// Apps Script 웹앱 주소. 비밀값이 아니라 학생 브라우저가 어차피 보는 주소다.
-var API_URL = 'https://script.google.com/macros/s/AKfycbxhg67JQXuHpt7-eus-tEDPr2BldZr0srRQUdLkb52ywxsVeedC7PQASNUhNM_w-nU_/exec';
+          <!-- STEP 3: 완료 -->
+          <div id="trialStep3" class="hidden center">
+            <h2 id="trialDone"></h2>
+            <p class="when" id="trialDoneWhen" style="font-size:1.05rem"></p>
+            <p><a id="trialDoneMeet" href="#" target="_blank" rel="noopener"></a></p>
+            <p class="muted" id="trialDoneNote"></p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-document.getElementById('direct').href = API_URL;
+    <!-- LOGIN — STEP 2: 인증번호 입력 (같은 페이지에서 끝내야 iframe에서 세션이 유지된다) -->
+    <section id="codeView" class="login-box hidden">
+      <h1 id="codeTitle"></h1>
+      <p class="muted" id="codeHint"></p>
+      <input type="text" id="codeInput" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" placeholder=""
+             style="text-align:center;letter-spacing:.4em;font-size:1.4rem;font-weight:700">
+      <button class="btn" id="codeVerifyBtn" style="width:100%"></button>
+      <p class="center" style="color:var(--warn)" id="codeErr"></p>
+      <p class="center" style="margin-top:14px">
+        <button class="btn ghost sm" id="codeResendBtn"></button>
+        <button class="btn ghost sm" id="codeBackBtn"></button>
+      </p>
+    </section>
 
-var btn = document.getElementById('run');
-var verdictEl = document.getElementById('verdict');
-var factsEl = document.getElementById('facts');
-var bodyEl = document.getElementById('body');
+    <!-- BOOKING VIEW -->
+    <section id="bookView" class="hidden">
+      <!-- 상단 바: 내 수업 / 문의하기 / (강사) 관리자 -->
+      <p style="margin:0 0 14px">
+        <button class="btn secondary sm" id="toMyPage"></button>
+        <button class="btn ghost sm" id="toContact"></button>
+        <button class="btn ghost sm hidden" id="toAdmin">🔑 관리자</button>
+      </p>
 
-function esc(v) {
-  return String(v).replace(/[&<>"']/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-  });
-}
+      <!-- 체험은 로그인 없는 별도 흐름으로 분리됨 → 이 화면은 개인수업 전용.
+           레이아웃은 체험과 동일한 Calendly식 2단 구성. -->
+      <div class="trial-wrap">
+        <aside class="trial-side">
+          <h2 id="bkGreeting" style="margin:0"></h2>
+          <p class="muted" id="bkSub" style="margin-top:8px"></p>
+          <p style="margin-top:14px"><span class="chip" id="bkCredits"></span></p>
+          <p class="muted" id="bkDateHint" style="font-size:.8rem;margin-top:14px"></p>
+        </aside>
 
-function facts(rows) {
-  factsEl.innerHTML = rows.map(function (r) {
-    return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
-  }).join('');
-}
+        <div class="trial-main">
+          <h3 id="bkPickDate"></h3>
+          <div class="cal-row">
+            <div class="cal-box">
+              <div class="cal-nav">
+                <button class="btn ghost sm" id="bkPrev">‹</button>
+                <span id="bkMonth"></span>
+                <button class="btn ghost sm" id="bkNext">›</button>
+              </div>
+              <div id="bkGrid"></div>
+              <p class="muted" style="font-size:.8rem;margin-top:10px">
+                <span id="tzLabel"></span> <select id="tzSelect"></select>
+              </p>
+            </div>
+            <div class="cal-times">
+              <h4 id="bkDayLabel" style="margin:0 0 8px"></h4>
+              <div id="bkTimes"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-function verdict(pass, text) {
-  verdictEl.className = pass ? 'pass' : 'fail';
-  verdictEl.textContent = (pass ? '✅ 통과 — ' : '❌ 실패 — ') + text;
-}
+    <!-- CONFIRMATION VIEW -->
+    <section id="doneView" class="hidden center">
+      <h1 id="doneTitle"></h1>
+      <p class="when" id="doneWhen" style="font-size:1.1rem"></p>
+      <p><span class="pill" id="doneMeetLabel"></span></p>
+      <p><a id="doneMeetLink" href="#" target="_blank" rel="noopener"></a></p>
+      <p style="margin-top:20px">
+        <button class="btn secondary" id="doneBackBtn"></button>
+        <button class="btn ghost" id="doneMyPage"></button>
+      </p>
+    </section>
 
-function run() {
-  btn.disabled = true;
-  verdictEl.className = '';
-  verdictEl.textContent = '보내는 중…';
-  bodyEl.textContent = '—';
+    <!-- MY LESSONS VIEW (§8.2) — 별도 페이지가 아니라 같은 문서의 뷰.
+         Apps Script는 샌드박스 iframe 안에서 돌아가 페이지 이동이 깨지므로,
+         화면 전환만으로 처리한다(iframe 임베드 시에도 안전). -->
+    <section id="myView" class="hidden">
+      <p>
+        <button class="btn secondary sm" id="toBooking"></button>
+        <button class="btn ghost sm" id="logoutBtn"></button>
+      </p>
 
-  var started = new Date().getTime();
-  var res = null;
+      <h2 id="summaryTitle"></h2>
+      <div id="packs"></div>
 
-  // Content-Type 을 text/plain 으로 보내는 이유: application/json 은 CORS preflight(OPTIONS)를
-  // 유발하는데 Apps Script 는 OPTIONS 를 처리하지 못한다. text/plain 은 단순 요청이라 preflight 가 없다.
-  fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'boot' })
-  }).then(function (r) {
-    res = r;
-    return r.text();
-  }).then(function (text) {
-    var ms = new Date().getTime() - started;
-    var parsed = null;
-    try { parsed = JSON.parse(text); } catch (e) { /* JSON 이 아니면 그대로 보여준다 */ }
-    var d = parsed && parsed.data;
+      <h2 id="upcomingTitle" style="margin-top:26px"></h2>
+      <div id="upcoming"></div>
 
-    facts([
-      ['이 페이지 주소(Origin)', location.origin],
-      ['HTTP 상태', res.status + ' ' + res.statusText],
-      ['리다이렉트 발생', res.redirected ? '예' : '아니오'],
-      ['최종 도착 주소', res.url],
-      ['응답 종류(res.type)', res.type],
-      ['소요 시간', ms + ' ms'],
-      ['서버 빌드 태그', parsed && parsed.build ? parsed.build : '(없음)'],
-      ['응답 크기', (text.length / 1024).toFixed(1) + ' KB'],
-      ['i18n 언어', d ? Object.keys(d.i18n || {}).join(' · ') || '(없음)' : '(없음)'],
-      ['ko 문구 개수', d && d.i18n && d.i18n.ko ? Object.keys(d.i18n.ko).length + '개' : '(없음)'],
-      ['ko 샘플', d && d.i18n && d.i18n.ko ? (d.i18n.ko.title || d.i18n.ko.login_title || JSON.stringify(d.i18n.ko).slice(0, 60)) : '(없음)'],
-      ['defaultLang', d ? String(d.defaultLang) : '(없음)'],
-      ['브라우저', navigator.userAgent]
-    ]);
-    bodyEl.textContent = text.slice(0, 1200) + (text.length > 1200 ? ' … (' + text.length + ' bytes)' : '');
+      <h2 id="pastTitle" style="margin-top:26px"></h2>
+      <div id="past"></div>
+    </section>
 
-    if (parsed && parsed.ok === true && d && d.i18n && d.i18n.ko && d.i18n.en && d.i18n.fr) {
-      verdict(true, 'boot 액션이 3개 언어 문구표를 실어 보냈습니다. 4단계로 넘어갈 수 있습니다.');
-    } else if (parsed && parsed.ok === true) {
-      verdict(false, '응답은 왔지만 i18n 이 비어 있습니다. 아래 본문을 확인하세요.');
-    } else if (/accounts\.google\.com/.test(res.url)) {
-      verdict(false, '계정 선택 페이지로 튕겼습니다. 이 설계는 성립하지 않습니다.');
-    } else {
-      verdict(false, 'JSON 봉투(ok:true)가 오지 않았습니다. 아래 본문을 확인하세요.');
+    <!-- CONTACT VIEW — 학생 → 강사 문의/피드백 -->
+    <section id="contactView" class="hidden">
+      <p><button class="btn secondary sm" id="contactBack"></button></p>
+      <h2 id="contactTitle"></h2>
+      <p class="muted" id="contactHint"></p>
+      <textarea id="contactMsg" rows="7"
+        style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;resize:vertical"></textarea>
+      <p><button class="btn" id="contactSend" style="width:100%"></button></p>
+      <p class="muted center hidden" id="contactOk"></p>
+    </section>
+
+    <!-- ADMIN VIEW — TEACHER_EMAIL 로 로그인했을 때만 노출 -->
+    <section id="adminView" class="hidden">
+      <p>
+        <button class="btn secondary sm" id="adminBack"></button>
+        <button class="btn ghost sm" id="adminReload">↻ 새로고침</button>
+      </p>
+      <h2>🔑 관리자</h2>
+
+      <div class="tabs" style="margin-bottom:14px">
+        <button id="adTabBookings" class="active">예약 관리</button>
+        <button id="adTabHours">근무시간</button>
+        <button id="adTabExc">날짜 예외</button>
+        <button id="adTabNew">대리 예약</button>
+        <button id="adTabGrant">크레딧 지급</button>
+        <button id="adTabStudent">학생 조회</button>
+        <button id="adTabDiag">진단</button>
+      </div>
+
+      <!-- 1) 예약 관리 -->
+      <div id="adPanelBookings">
+        <p class="muted">강사 권한으로 취소·일정변경을 할 수 있습니다. 24시간 규칙이 적용되지 않으며,
+          취소 시 학생 크레딧은 항상 복구됩니다.</p>
+        <div id="adminList"></div>
+      </div>
+
+      <!-- 2) 근무시간 드래그 편집 -->
+      <div id="adPanelHours" class="hidden">
+        <div class="tabs" style="margin-bottom:10px">
+          <button id="adHoursPrivate" class="active">개인수업</button>
+          <button id="adHoursTrial">무료 체험</button>
+        </div>
+        <p class="muted">마우스를 <b>끌어서</b> 시간대를 칠하세요. 칠해진 칸이 예약 가능 시간입니다.
+          이미 칠해진 칸에서 시작하면 지워집니다. (기준 시간대: Europe/Paris)</p>
+        <div id="hoursGrid" class="hgrid-wrap"></div>
+        <p style="margin-top:12px">
+          <button class="btn" id="adHoursSave">저장</button>
+          <button class="btn ghost" id="adHoursReload">되돌리기</button>
+        </p>
+      </div>
+
+      <!-- 3) 날짜별 예외 -->
+      <div id="adPanelExc" class="hidden">
+        <p class="muted">특정 날짜에만 적용되는 예외입니다. 기본 근무시간보다 우선합니다.</p>
+        <div class="card">
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <input type="date" id="excDate">
+            <select id="excType">
+              <option value="closed">닫기 (휴무)</option>
+              <option value="open">추가 오픈</option>
+            </select>
+            <select id="excCategory">
+              <option value="both">개인+체험</option>
+              <option value="private">개인수업만</option>
+              <option value="trial">체험만</option>
+            </select>
+            <input type="time" id="excStart" step="1800">
+            <input type="time" id="excEnd" step="1800">
+            <button class="btn sm" id="excAdd">추가</button>
+          </div>
+          <p class="muted" style="margin:8px 0 0;font-size:12px">
+            시간을 비우고 <b>닫기</b>를 선택하면 그날 <b>종일 휴무</b>가 됩니다.
+            추가 오픈은 시작·종료 시간이 반드시 필요합니다.</p>
+        </div>
+        <div id="excList" style="margin-top:14px"></div>
+      </div>
+
+      <!-- 4) 대리 예약 -->
+      <div id="adPanelNew" class="hidden">
+        <p class="muted">학생을 선택하고 시간을 고르면 강사가 대신 예약합니다.
+          학생에게는 평소와 같은 확정 메일이 발송됩니다.</p>
+        <div class="card">
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <select id="nbStudent" style="min-width:240px"></select>
+            <select id="nbCategory">
+              <option value="private">개인수업</option>
+              <option value="trial">무료 체험</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.85rem">
+              <input type="checkbox" id="nbUseCredit" checked> 크레딧 차감
+            </label>
+            <button class="btn ghost sm" id="nbPrevWeek">‹ 이전주</button>
+            <span class="range" id="nbWeekRange"></span>
+            <button class="btn ghost sm" id="nbNextWeek">다음주 ›</button>
+          </div>
+        </div>
+        <div id="nbSlots" style="margin-top:14px"></div>
+      </div>
+
+      <!-- 5) 크레딧 팩 수동 지급 -->
+      <div id="adPanelGrant" class="hidden">
+        <p class="muted">Stripe 연동 이전에 결제한 학생을 등록하거나, 계좌이체 등
+          Stripe 밖에서 받은 결제를 반영할 때 사용합니다.
+          만료일(6개월)과 조커는 일반 구매와 동일하게 적용됩니다.</p>
+        <div class="card">
+          <label class="tf-label">학생 (기존 학생 선택 또는 아래에 새 이메일 입력)</label>
+          <select id="gpStudent" class="tf"></select>
+
+          <label class="tf-label">새 학생 이메일 (기존 학생이면 비워두세요)</label>
+          <input type="email" id="gpEmail" class="tf" placeholder="student@example.com">
+
+          <label class="tf-label">이름 (새 학생일 때만)</label>
+          <input type="text" id="gpName" class="tf">
+
+          <label class="tf-label">패키지</label>
+          <select id="gpPack" class="tf">
+            <option value="BOOST5">BOOST5 — 5회 + 조커 1</option>
+            <option value="IMMERSION10">IMMERSION10 — 10회 + 조커 1</option>
+            <option value="SINGLE">SINGLE — 1회</option>
+          </select>
+
+          <label class="tf-label">메모 (원장 기록용, 선택)</label>
+          <input type="text" id="gpNote" class="tf" placeholder="예: 2026-07 Stripe 결제 백필">
+
+          <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;margin-top:12px">
+            <input type="checkbox" id="gpNotify" checked> 학생에게 등록 안내 메일 보내기
+          </label>
+
+          <button class="btn" id="gpSubmit" style="width:100%;margin-top:14px">지급하기</button>
+          <p class="center" id="gpResult" style="font-size:.85rem"></p>
+        </div>
+      </div>
+
+      <!-- 6) 학생 조회 — 학생이 보는 내용을 강사가 그대로 확인 -->
+      <div id="adPanelStudent" class="hidden">
+        <p class="muted">학생을 선택하면 그 학생이 '내 수업'에서 보는 내용을 그대로 확인할 수 있습니다.</p>
+        <select id="svStudent" class="tf" style="max-width:420px"></select>
+        <div id="svBody" style="margin-top:16px"></div>
+      </div>
+
+      <!-- 7) 진단 — 설정이 제대로 됐는지 / 메일이 실제로 나가는지 -->
+      <div id="adPanelDiag" class="hidden">
+        <p class="muted">계정 이전이나 재배포 직후, 그리고 "메일이 안 와요" 문의를 받았을 때
+        여기서 원인을 좁힐 수 있습니다.</p>
+        <div class="card">
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn sm" id="diagCheck">설정 점검</button>
+            <button class="btn secondary sm" id="diagMail">메일 발송 테스트</button>
+          </div>
+          <p class="muted" style="margin:10px 0 0;font-size:12px">
+            <b>설정 점검</b> — 스크립트 속성, 캘린더 접근(freebusy), 원장 시트와 탭, 트리거를 차례로 확인합니다.
+            아무것도 바꾸지 않으니 몇 번을 눌러도 안전합니다.<br>
+            <b>메일 발송 테스트</b> — 강사 주소로만 테스트 메일 <b>1통</b>을 보내고 남은 발송 한도를 알려줍니다.
+            하루 한도(약 100통)를 함께 쓰므로 필요할 때만 누르세요.</p>
+        </div>
+        <div id="diagResult" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <!-- 배포 버전 표시: clasp push 후 재배포를 잊으면 이 값이 안 바뀐다 -->
+    <p class="center" id="buildTag" style="margin-top:28px;font-size:11px;opacity:.35"></p>
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div class="modal-back" id="confirmModal">
+    <div class="modal">
+      <h3 id="cmTitle"></h3>
+      <p class="when" id="cmWhen"></p>
+      <p class="muted" id="cmNote"></p>
+      <div class="row">
+        <button class="btn secondary" id="cmCancel"></button>
+        <button class="btn" id="cmConfirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MY LESSONS MODAL (옮기기 / 취소·조커) -->
+  <div class="modal-back" id="myModal">
+    <div class="modal">
+      <h3 id="mTitle"></h3>
+      <p class="muted" id="mBody"></p>
+      <div id="mSlots" class="hidden" style="max-height:260px;overflow:auto;margin-top:10px"></div>
+      <div class="row" id="mButtons"></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // ---------- state ----------
+    var category = 'private';
+    var summary = null;          // credits summary
+    var pendingSlot = null;
+    var myData = null;           // getMyLessons payload (§8.2)
+
+    // ---------- boot ----------
+    document.addEventListener('DOMContentLoaded', function () {
+      App.init();
+      buildLangToggle();
+      renderStatic();
+
+      // magic-link result (session may be set by BOOT)
+      document.getElementById('buildTag').textContent = BOOT.build || '';
+
+      if (BOOT.authError) { document.getElementById('authErr').textContent = App.t('auth_error'); }
+      if (App.isLoggedIn()) {
+        enterApp();
+        // 예전 '?page=mypage' 링크로 들어와도 해당 뷰를 열어준다
+        if (BOOT.requestedPage === 'mypage') openMyLessons();
+      }
+      else { showView('loginView'); }
+
+      wireEvents();
+    });
+
+    function onLangChange() {
+      renderStatic();
+      if (!App.isLoggedIn()) return;
+      // 선택한 언어를 서버에 저장 → 이후 리마인더/만료 메일도 같은 언어로 발송 (§11)
+      App.call('setMyPrefs', App.getSession(), App.lang, App.tz).catch(function () {});
+      renderCreditChip();
+      if (isViewOpen('myView')) { if (myData) renderMyAll(); }
+      else { loadSlots(); }
     }
-  }).catch(function (err) {
-    facts([
-      ['이 페이지 주소(Origin)', location.origin],
-      ['오류', String(err)],
-      ['브라우저', navigator.userAgent]
-    ]);
-    verdict(false, 'fetch 가 실패했습니다. 위 링크를 새 탭에서 열어 계정 문제인지 CORS 문제인지 가르고, 브라우저 콘솔도 함께 보세요.');
-  }).then(function () {
-    btn.disabled = false;
-  });
-}
 
-btn.addEventListener('click', run);
-run();
-</script>
+    // ---------- language toggle ----------
+    function buildLangToggle() {
+      var box = document.getElementById('langToggle');
+      box.innerHTML = '';
+      ['ko', 'en', 'fr'].forEach(function (l) {
+        if (!App.i18n()[l]) return;
+        var b = document.createElement('button');
+        b.textContent = l.toUpperCase();
+        b.className = (l === App.lang) ? 'active' : '';
+        b.onclick = function () {
+          App.setLang(l);
+          Array.prototype.forEach.call(box.children, function (c) { c.className = ''; });
+          b.className = 'active';
+        };
+        box.appendChild(b);
+      });
+    }
 
+    // ---------- static text ----------
+    function renderStatic() {
+      var set = function (id, key) { var e = document.getElementById(id); if (e) e.textContent = App.t(key); };
+      set('loginTitle', 'login_title'); set('loginHint', 'login_hint');
+      document.getElementById('emailInput').placeholder = App.t('email_placeholder');
+      set('sendLinkBtn', 'send_link');
+      set('prevWeek', 'week_prev'); set('nextWeek', 'week_next');
+      // 무료 체험 (공개 흐름)
+      set('trialCta', 'trial_cta'); set('trialBackLogin', 'trial_back_login');
+      set('trialHead', 'trial_head'); set('trialDur', 'trial_dur');
+      set('trialMeetNote', 'trial_meet_note'); set('trialDesc', 'trial_desc');
+      set('trialPickDate', 'trial_pick_date'); set('trialDetails', 'trial_details');
+      set('lblName', 'trial_name'); set('lblEmail', 'trial_email');
+      set('lblPhone', 'trial_phone'); set('lblNote', 'trial_note');
+      set('trialSubmit', 'trial_submit'); set('trialTzLabel', 'tz_label');
+      set('trialDone', 'trial_done'); set('trialDoneNote', 'trial_done_note');
+      set('tzLabel', 'tz_label');
+      set('bkPickDate', 'trial_pick_date'); set('bkSub', 'book_sub');
+      set('bkDateHint', 'date_format_hint');
+      renderGreeting();
+      set('toMyPage', 'my_lessons');
+      set('doneTitle', 'booked_title'); set('doneMeetLabel', 'meet_link_label');
+      set('doneBackBtn', 'to_booking'); set('doneMyPage', 'my_lessons');
+      set('cmCancel', 'cancel_btn'); set('cmConfirm', 'confirm_btn');
+      // my-lessons view (§8.2)
+      set('toBooking', 'to_booking'); set('logoutBtn', 'logout');
+      set('summaryTitle', 'summary_title');
+      set('upcomingTitle', 'upcoming'); set('pastTitle', 'past');
+      // contact (§ 문의 폼)
+      set('toContact', 'contact_btn'); set('contactBack', 'to_booking');
+      set('contactTitle', 'contact_title'); set('contactHint', 'contact_hint');
+      set('contactSend', 'contact_send');
+      document.getElementById('contactMsg').placeholder = App.t('contact_placeholder');
+      set('adminBack', 'to_booking');
+      set('vocaLink', 'voca_link');
+      // 인증번호 단계
+      set('codeTitle', 'code_title'); set('codeVerifyBtn', 'code_verify');
+      set('codeResendBtn', 'code_resend'); set('codeBackBtn', 'code_change_email');
+      document.getElementById('codeInput').placeholder = App.t('code_placeholder');
+      if (pendingEmail) {
+        document.getElementById('codeHint').textContent = App.t('code_hint', { email: pendingEmail });
+      }
+    }
+
+    // ---------- events ----------
+    function wireEvents() {
+      document.getElementById('sendLinkBtn').onclick = onSendLink;
+      document.getElementById('emailInput').onkeydown = function (e) { if (e.key === 'Enter') onSendLink(); };
+      document.getElementById('codeVerifyBtn').onclick = onVerifyCode;
+      document.getElementById('codeResendBtn').onclick = onResendCode;
+      document.getElementById('codeBackBtn').onclick = function () { showView('loginView'); };
+      // 무료 체험 (공개 흐름)
+      document.getElementById('trialCta').onclick = openTrial;
+      document.getElementById('trialBackLogin').onclick = function () { showView('loginView'); };
+      document.getElementById('trialBackCal').onclick = function () { trialStep(1); };
+      document.getElementById('calPrev').onclick = function () { loadTrialMonth(shiftMonth(tMonth, -1)); };
+      document.getElementById('calNext').onclick = function () { loadTrialMonth(shiftMonth(tMonth, 1)); };
+      document.getElementById('trialSubmit').onclick = submitTrial;
+      var ci = document.getElementById('codeInput');
+      ci.onkeydown = function (e) { if (e.key === 'Enter') onVerifyCode(); };
+      // 6자리를 다 넣으면 자동 제출 (숫자만 남김)
+      ci.oninput = function () {
+        ci.value = ci.value.replace(/\D/g, '').slice(0, 6);
+        if (ci.value.length === 6) onVerifyCode();
+      };
+      document.getElementById('bkPrev').onclick = function () { loadBookMonth(shiftMonth(bkMonth, -1)); };
+      document.getElementById('bkNext').onclick = function () { loadBookMonth(shiftMonth(bkMonth, 1)); };
+      document.getElementById('tzSelect').onchange = function (e) { App.tz = e.target.value; loadSlots(); };
+      document.getElementById('cmCancel').onclick = closeModal;
+      document.getElementById('cmConfirm').onclick = confirmBooking;
+      document.getElementById('doneBackBtn').onclick = function () { showView('bookView'); loadSlots(); };
+      // 페이지 이동 없이 뷰 전환 (샌드박스 iframe에서 location 이동이 깨지는 문제 회피)
+      document.getElementById('toMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
+      document.getElementById('doneMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
+      document.getElementById('toBooking').onclick = function () { showView('bookView'); loadSlots(); };
+      document.getElementById('toContact').onclick = function () { openContact(); };
+      document.getElementById('contactBack').onclick = function () { showView('bookView'); };
+      document.getElementById('contactSend').onclick = sendContact;
+      document.getElementById('toAdmin').onclick = function () { openAdmin(); };
+      document.getElementById('adminBack').onclick = function () { showView('bookView'); loadSlots(); };
+      document.getElementById('adminReload').onclick = function () { loadAdminBookings(); };
+
+      // 관리자 서브탭
+      Object.keys(AD_PANELS).forEach(function (t) {
+        document.getElementById(t).onclick = function () { adShowPanel(t); };
+      });
+      // 근무시간 편집기
+      document.getElementById('adHoursPrivate').onclick = function () { hgCategory = 'private'; loadHours(); };
+      document.getElementById('adHoursTrial').onclick = function () { hgCategory = 'trial'; loadHours(); };
+      document.getElementById('adHoursSave').onclick = saveHours;
+      document.getElementById('adHoursReload').onclick = loadHours;
+      // 날짜 예외
+      document.getElementById('excAdd').onclick = addException;
+      // 진단 (탭을 열 때 자동 실행하지 않는다 — 메일 발송·할당량 소모가 따르므로 명시적으로만)
+      document.getElementById('diagCheck').onclick = function () {
+        runDiag('adminCheckSetup', '설정 점검', 'diagCheck');
+      };
+      document.getElementById('diagMail').onclick = function () {
+        runDiag('adminDebugEmail', '메일 발송 테스트', 'diagMail');
+      };
+      // 대리 예약
+      document.getElementById('nbCategory').onchange = function () { nbWeekOffset = 0; loadProxySlots(); };
+      document.getElementById('gpSubmit').onclick = grantPack;
+      document.getElementById('nbPrevWeek').onclick = function () { nbWeekOffset--; loadProxySlots(); };
+      document.getElementById('nbNextWeek').onclick = function () { nbWeekOffset++; loadProxySlots(); };
+      document.getElementById('logoutBtn').onclick = function () {
+        App.logout();
+        myData = null;
+        document.getElementById('creditChip').classList.add('hidden');
+        showView('loginView');
+      };
+    }
+
+    // ---------- login (2단계: 이메일 → 인증번호) ----------
+    var pendingEmail = '';
+
+    function onSendLink() {
+      var email = document.getElementById('emailInput').value.trim();
+      if (!email) { App.toast(App.t('invalid_email'), true); return; }
+      var btn = document.getElementById('sendLinkBtn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('requestLoginCode', email, App.lang).then(function (r) {
+        btn.disabled = false; btn.textContent = App.t('send_link');
+        if (r && r.ok) { pendingEmail = email; showCodeStep(); return; }
+        // 예전에는 어떤 이유든 "이메일 형식이 올바르지 않습니다" 가 떠서
+        // 상한에 걸린 사람이 이메일만 계속 고쳐 쓰는 상황이 됐다.
+        var map = { rate_limited: 'code_rate_limited', mail_quota: 'code_rate_limited',
+                    mail_failed: 'code_mail_failed', invalid_email: 'invalid_email' };
+        App.toast(App.t(map[r && r.reason] || 'error_generic'), true);
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = App.t('send_link');
+        App.toast(errToMsg(err), true);
+      });
+    }
+
+    function showCodeStep() {
+      document.getElementById('codeHint').textContent =
+        App.t('code_hint', { email: pendingEmail });
+      document.getElementById('codeInput').value = '';
+      document.getElementById('codeErr').textContent = '';
+      showView('codeView');
+      document.getElementById('codeInput').focus();
+    }
+
+    function onVerifyCode() {
+      var code = document.getElementById('codeInput').value.replace(/\D/g, '');
+      if (code.length < 6) { document.getElementById('codeErr').textContent = App.t('code_bad'); return; }
+      var btn = document.getElementById('codeVerifyBtn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('verifyLoginCode', pendingEmail, code).then(function (r) {
+        btn.disabled = false; btn.textContent = App.t('code_verify');
+        if (r && r.ok) {
+          App.setSession(r.session);   // iframe 내부 저장소에 저장 → 90일 유지
+          document.getElementById('codeErr').textContent = '';
+          enterApp();
+          return;
+        }
+        var msg = { no_code: 'code_expired', too_many: 'code_too_many' }[r && r.reason] || 'code_bad';
+        document.getElementById('codeErr').textContent = App.t(msg);
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = App.t('code_verify');
+        document.getElementById('codeErr').textContent = App.t('code_bad');
+      });
+    }
+
+    function onResendCode() {
+      var btn = document.getElementById('codeResendBtn');
+      btn.disabled = true;
+      App.call('requestLoginCode', pendingEmail, App.lang).then(function () {
+        btn.disabled = false;
+        document.getElementById('codeErr').textContent = '';
+        document.getElementById('codeInput').value = '';
+        App.toast(App.t('link_sent'));
+      }).catch(function () { btn.disabled = false; });
+    }
+
+    // ---------- app ----------
+    function enterApp() {
+      buildTzSelect();
+      showView('bookView');
+      renderCreditChip();
+      loadSlots();
+      // 관리자 버튼은 서버가 세션 이메일로 판정했을 때만 노출한다.
+      // (숨김은 편의일 뿐, 실제 권한은 서버 requireTeacher_ 에서 강제됨)
+      App.call('amITeacher', App.getSession()).then(function (r) {
+        if (r && r.isTeacher) document.getElementById('toAdmin').classList.remove('hidden');
+      }).catch(function () {});
+    }
+
+    function renderCreditChip() {
+      App.call('getCreditsSummary', App.getSession()).then(function (s) {
+        summary = s;
+        var chip = document.getElementById('creditChip');
+        chip.classList.remove('hidden');
+        chip.textContent = App.t('remaining_chip', { n: s.credits_remaining });
+        chip.className = 'chip';
+        renderGreeting();
+      }).catch(function () {});
+    }
+
+    /** 예약 화면 왼쪽 인사말 — 이름이 없으면 이메일 앞부분을 쓴다. */
+    function renderGreeting() {
+      if (!summary) return;
+      var who = summary.name || (summary.email || '').split('@')[0];
+      document.getElementById('bkGreeting').textContent = App.t('greeting', { name: who });
+      document.getElementById('bkCredits').textContent =
+        App.t('remaining_chip', { n: summary.credits_remaining });
+    }
+
+    // ---------- timezone ----------
+    function buildTzSelect() {
+      var sel = document.getElementById('tzSelect');
+      var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
+                   'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney', 'UTC'];
+      var detected = App.tz;
+      if (zones.indexOf(detected) < 0) zones.unshift(detected);
+      sel.innerHTML = zones.map(function (z) {
+        return '<option value="' + esc(z) + '"' + (z === detected ? ' selected' : '') + '>' + esc(z) + '</option>';
+      }).join('');
+    }
+
+    // ---------- slots ----------
+    function weekStartIso(offset) {
+      var d = new Date();
+      d.setDate(d.getDate() + offset * 7);
+      var y = d.getFullYear(), m = ('0' + (d.getMonth() + 1)).slice(-2), day = ('0' + d.getDate()).slice(-2);
+      return y + '-' + m + '-' + day;
+    }
+
+    // ---- 개인수업 월달력 (체험과 동일한 UI) ----
+    var BK_IDS = { grid: 'bkGrid', month: 'bkMonth', times: 'bkTimes', dayLabel: 'bkDayLabel' };
+    var bkMonth = null, bkData = null, bkSelDate = null;
+
+    function loadSlots() { loadBookMonth(bkMonth || currentMonthIso()); }
+
+    function loadBookMonth(monthIso) {
+      bkMonth = monthIso;
+      document.getElementById('bkGrid').innerHTML = '<p class="muted">…</p>';
+      document.getElementById('bkTimes').innerHTML = '';
+      document.getElementById('bkDayLabel').textContent = '';
+      App.call('getMonthSlots', App.getSession(), bkMonth, App.tz).then(function (d) {
+        bkData = d;
+        paintCalendar(BK_IDS, bkMonth, bkData, bkSelDate, selectBookDate);
+      }).catch(function () {
+        document.getElementById('bkGrid').innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>';
+      });
+    }
+
+    function selectBookDate(ymd) {
+      bkSelDate = ymd;
+      paintCalendar(BK_IDS, bkMonth, bkData, bkSelDate, selectBookDate);
+      paintTimes(BK_IDS, bkData, ymd, 'no_slots', function (s) {
+        openModal(s.start_utc, ymd.split('-').reverse().join('/') + ' ' + s.time_label);
+      });
+    }
+
+    function rangeLabel(startIso) {
+      var s = new Date(startIso + 'T00:00:00');
+      var e = new Date(s.getTime()); e.setDate(e.getDate() + 6);
+      // 일/월 순서(유럽식). 연도는 오른쪽 끝에 한 번만 표기.
+      var f = function (d) { return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); };
+      return f(s) + ' – ' + f(e) + '/' + e.getFullYear();
+    }
+
+    // ---------- confirm modal ----------
+    function openModal(utc, whenLabel) {
+      pendingSlot = utc;
+      document.getElementById('cmTitle').textContent = App.t('confirm_title');
+      document.getElementById('cmWhen').textContent = whenLabel;
+      document.getElementById('cmNote').textContent =
+        (category === 'trial') ? App.t('confirm_trial') : App.t('confirm_private');
+      document.getElementById('confirmModal').classList.add('open');
+    }
+    function closeModal() { document.getElementById('confirmModal').classList.remove('open'); }
+
+    function confirmBooking() {
+      var btn = document.getElementById('cmConfirm');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      var fn = (category === 'trial') ? 'bookTrial' : 'bookPrivate';
+      // 현재 언어토글/시간대를 함께 보내 확정메일이 그 언어로 나가게 한다 (§9/§11)
+      App.call(fn, App.getSession(), pendingSlot, { lang: App.lang, tz: App.tz }).then(function (r) {
+        btn.disabled = false; btn.textContent = App.t('confirm_btn');
+        closeModal();
+        if (r && r.ok) {
+          showDone(r);
+          // 예약은 됐지만 확정 메일이 실패한 경우 (서버가 mail_sent:false 로 알려준다)
+          if (r.mail_sent === false) App.toast(App.t('mail_failed_note'), true);
+        }
+        else { App.toast(codeToMsg(r && r.code, r), true); }
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = App.t('confirm_btn'); closeModal();
+        App.toast(errToMsg(err), true);
+      });
+    }
+
+    /**
+     * 서버가 돌려준 code → 학생에게 보여줄 문구.
+     * 모르는 code 를 slot_taken('방금 다른 분이 예약했습니다')으로 뭉개면 원인 파악이
+     * 불가능해진다. 이제 모르는 것은 error_generic 으로 보낸다.
+     */
+    function codeToMsg(code, r) {
+      // 유효기간 밖 예약 — 서버가 언제까지인지 알려준다 (4단계 M4)
+      if (code === 'PACK_EXPIRES_BEFORE') {
+        return App.t('pack_expires_before', { date: (r && r.expiry_label) || '' });
+      }
+      var map = {
+        NO_CREDITS: 'no_credits', TRIAL_USED: 'trial_used_err',
+        BOOK_TOO_LATE: 'book_too_late', SLOT_TAKEN: 'slot_taken',
+        NOT_CANCELLABLE: 'error_generic', NOT_RESCHEDULABLE: 'error_generic',
+        RESCHED_TOO_LATE: 'resched_too_late', BUSY: 'trial_err_busy',
+        SLOT_UNAVAILABLE: 'slot_unavailable',   // 근무시간·휴무 밖 (4단계 H3)
+        INVALID_TIME: 'error_generic'
+      };
+      return App.t(map[code] || 'error_generic');
+    }
+
+    /** 예외(throw) → 문구. 서버 가드가 던지는 문자열을 구분한다. */
+    function errToMsg(err) {
+      var m = String((err && err.message) || err || '');
+      if (m.indexOf('AUTH_REQUIRED') >= 0) return App.t('session_expired');
+      if (m.indexOf('FORBIDDEN') >= 0) return App.t('error_generic');
+      if (m.indexOf('BOOK_TOO_LATE') >= 0) return App.t('book_too_late');
+      if (m.indexOf('SLOT_UNAVAILABLE') >= 0) return App.t('slot_unavailable');
+      if (m.indexOf('SLOT_TAKEN') >= 0) return App.t('slot_taken');
+      return App.t('error_generic');
+    }
+
+    // ---------- done ----------
+    function showDone(r) {
+      document.getElementById('doneWhen').textContent = document.getElementById('cmWhen').textContent;
+      var link = document.getElementById('doneMeetLink');
+      var meetUrl = safeHttpsUrl(r.meet_link); // href 프로퍼티 대입도 스킴 검사가 필요하다
+      if (meetUrl) { link.href = meetUrl; link.textContent = meetUrl; }
+      else { link.removeAttribute('href'); link.textContent = '—'; }
+      showView('doneView');
+      renderCreditChip();
+    }
+
+    // =======================================================================
+    // MY LESSONS (§8.2) — same document, no navigation.
+    // =======================================================================
+
+    function openMyLessons() {
+      showView('myView');
+      App.call('getMyLessons', App.getSession(), App.tz).then(function (d) {
+        myData = d; renderMyAll();
+      }).catch(function () {
+        // session likely expired → back to login
+        App.logout(); myData = null;
+        document.getElementById('creditChip').classList.add('hidden');
+        showView('loginView');
+        App.toast(App.t('auth_error'), true);
+      });
+    }
+
+    function renderMyAll() { renderPacks(); renderUpcoming(); renderPast(); }
+
+    function renderPacks() {
+      var el = document.getElementById('packs');
+      if (!myData.packs.length) { el.innerHTML = '<p class="muted">—</p>'; return; }
+      el.innerHTML = myData.packs.map(function (p) {
+        var status = (p.status !== 'active') ? ' <span class="pill">' + esc(p.status) + '</span>' : '';
+        return '<div class="card"><strong>' + esc(p.pack_type) + '</strong>' + status +
+          '<div class="muted" style="margin-top:6px">' +
+          esc(App.t('pack_remaining')) + ': <b>' + esc(p.credits_remaining) + '</b> / ' + esc(p.credits_total) + ' &nbsp;·&nbsp; ' +
+          esc(App.t('pack_joker')) + ': <b>' + esc(p.joker_remaining) + '</b> / ' + esc(p.joker_total) + ' &nbsp;·&nbsp; ' +
+          esc(App.t('pack_expiry')) + ': <b>' + esc(p.expiry_label) + '</b></div></div>';
+      }).join('');
+    }
+
+    function renderUpcoming() {
+      var el = document.getElementById('upcoming');
+      if (!myData.upcoming.length) { el.innerHTML = '<p class="muted">—</p>'; return; }
+      el.innerHTML = '';
+      myData.upcoming.forEach(function (b) {
+        var meetUrl = safeHttpsUrl(b.meet_link); // https:// 가 아니면 링크를 그리지 않는다
+        var div = document.createElement('div');
+        div.className = 'card lesson';
+        div.innerHTML =
+          '<div><div class="when">' + esc(b.day_label) + ' ' + esc(b.date_label) + ' ' + esc(b.time_label) + '</div>' +
+          '<div class="cat">' + esc(b.category === 'trial' ? App.t('tab_trial') : App.t('tab_private')) +
+          (meetUrl ? ' · <a href="' + esc(meetUrl) + '" target="_blank" rel="noopener">Meet</a>' : '') + '</div></div>' +
+          '<div class="actions"></div>';
+        var actions = div.querySelector('.actions');
+        var rb = document.createElement('button'); rb.className = 'btn ghost sm'; rb.textContent = App.t('reschedule');
+        rb.onclick = function () { openReschedule(b); };
+        var cb = document.createElement('button'); cb.className = 'btn danger sm'; cb.textContent = App.t('cancel');
+        cb.onclick = function () { openCancel(b); };
+        actions.appendChild(rb); actions.appendChild(cb);
+        el.appendChild(div);
+      });
+    }
+
+    function renderPast() {
+      var el = document.getElementById('past');
+      if (!myData.past.length) { el.innerHTML = '<p class="muted">—</p>'; return; }
+      el.innerHTML = myData.past.map(function (b) {
+        return '<div class="card lesson"><div><div class="when">' +
+          esc(b.day_label) + ' ' + esc(b.date_label) + ' ' + esc(b.time_label) +
+          '</div><div class="cat">' + esc(b.category === 'trial' ? App.t('tab_trial') : App.t('tab_private')) +
+          ' · <span class="pill">' + esc(b.status) + '</span></div></div></div>';
+      }).join('');
+    }
+
+    // ---------- reschedule (§6) — 예약 화면과 동일한 월달력 ----------
+    var RS_IDS = { grid: 'rsGrid', month: 'rsMonth', times: 'rsTimes', dayLabel: 'rsDayLabel' };
+    var rsMonth = null, rsData = null, rsSelDate = null, rsBooking = null;
+
+    function openReschedule(b) {
+      rsBooking = b;
+      rsMonth = currentMonthIso(); rsData = null; rsSelDate = null;
+      myModalTitle(App.t('reschedule'));
+      document.getElementById('mBody').textContent = App.t('pick_new_slot');
+
+      // 모달 안에 달력 UI를 심는다 (예약 화면과 같은 구성)
+      var slotBox = document.getElementById('mSlots');
+      slotBox.classList.remove('hidden');
+      slotBox.innerHTML =
+        '<div class="cal-nav">' +
+          '<button class="btn ghost sm" id="rsPrev">‹</button>' +
+          '<span id="rsMonth"></span>' +
+          '<button class="btn ghost sm" id="rsNext">›</button>' +
+        '</div>' +
+        '<div id="rsGrid"></div>' +
+        '<h4 id="rsDayLabel" style="margin:12px 0 6px"></h4>' +
+        '<div id="rsTimes"></div>';
+
+      document.getElementById('rsPrev').onclick = function () { loadRsMonth(shiftMonth(rsMonth, -1)); };
+      document.getElementById('rsNext').onclick = function () { loadRsMonth(shiftMonth(rsMonth, 1)); };
+
+      setMyButtons([{ label: App.t('cancel_btn'), cls: 'btn secondary', fn: closeMyModal }]);
+      openMyModal();
+      loadRsMonth(rsMonth);
+    }
+
+    function loadRsMonth(monthIso) {
+      rsMonth = monthIso;
+      document.getElementById('rsGrid').innerHTML = '<p class="muted">…</p>';
+      document.getElementById('rsTimes').innerHTML = '';
+      document.getElementById('rsDayLabel').textContent = '';
+      // 체험/개인 각각 자기 근무시간이 적용된 월별 슬롯
+      var fn = (rsBooking.category === 'trial') ? 'getTrialMonth' : 'getMonthSlots';
+      var call = (rsBooking.category === 'trial')
+        ? App.call(fn, rsMonth, App.tz)
+        : App.call(fn, App.getSession(), rsMonth, App.tz);
+      call.then(function (d) {
+        rsData = d;
+        paintCalendar(RS_IDS, rsMonth, rsData, rsSelDate, selectRsDate);
+      }).catch(function () {
+        document.getElementById('rsGrid').innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>';
+      });
+    }
+
+    function selectRsDate(ymd) {
+      rsSelDate = ymd;
+      paintCalendar(RS_IDS, rsMonth, rsData, rsSelDate, selectRsDate);
+      paintTimes(RS_IDS, rsData, ymd, 'no_slots', function (s) {
+        doReschedule(rsBooking.booking_id, s.start_utc);
+      });
+    }
+
+    function doReschedule(id, newUtc) {
+      App.call('rescheduleBooking', App.getSession(), id, newUtc).then(function (r) {
+        closeMyModal();
+        if (r && r.ok) {
+          App.toast(App.t(r.mail_sent === false ? 'mail_failed_note' : 'rescheduled_ok'),
+                    r.mail_sent === false);
+          openMyLessons();
+          return;
+        }
+        App.toast(codeToMsg(r && r.code, r), true);
+      }).catch(function (err) { closeMyModal(); App.toast(errToMsg(err), true); });
+    }
+
+    // ---------- cancel (§6) ----------
+
+    /**
+     * 취소 결과 문구.
+     * 우선순위: 크레딧 복구 실패 > 메일 발송 실패 > 정상.
+     * refund_blocked 는 만료·환불된 팩이라 되돌릴 수 없었다는 뜻이다(4단계 M3) —
+     * 예전에는 이 경우에도 "취소되었습니다"만 떠서 학생이 크레딧이 돌아온 줄 알았다.
+     */
+    function cancelResultMsg(r) {
+      if (r.refund_blocked) return App.t('refund_blocked');
+      if (r.mail_sent === false) return App.t('mail_failed_note');
+      return App.t('cancelled_ok');
+    }
+
+    function openCancel(b) {
+      // 1차 시도(confirmLate 없음) — 서버가 <24h 여부와 조커 보유를 알려준다
+      App.call('cancelBooking', App.getSession(), b.booking_id, {}).then(function (r) {
+        if (r && r.ok) {
+          App.toast(cancelResultMsg(r), !!(r.refund_blocked || r.mail_sent === false));
+          openMyLessons();
+          return;
+        }
+        if (r && r.code === 'SOFT_WARN') { showSoftWarn(b, r.joker_available); return; }
+        // 예전에는 여기서도 "취소했습니다" 를 띄워, 실패했는데 성공한 것처럼 보였다.
+        App.toast(codeToMsg(r && r.code), true);
+      }).catch(function (err) { App.toast(errToMsg(err), true); });
+    }
+
+    function showSoftWarn(b, jokerAvailable) {
+      myModalTitle(App.t('cancel'));
+      document.getElementById('mBody').textContent = App.t('cancel_soft_warn');
+      document.getElementById('mSlots').classList.add('hidden');
+      var buttons = [{ label: App.t('cancel_btn'), cls: 'btn secondary', fn: closeMyModal }];
+      if (jokerAvailable) {
+        buttons.push({ label: App.t('use_joker'), cls: 'btn', fn: function () { doCancelLate(b, true); } });
+      }
+      buttons.push({ label: App.t('proceed_cancel'), cls: 'btn danger', fn: function () { doCancelLate(b, false); } });
+      setMyButtons(buttons);
+      openMyModal();
+    }
+
+    function doCancelLate(b, useJoker) {
+      App.call('cancelBooking', App.getSession(), b.booking_id, { confirmLate: true, useJoker: !!useJoker })
+        .then(function (r) {
+          closeMyModal();
+          if (r && r.ok) {
+            App.toast(cancelResultMsg(r), !!(r.refund_blocked || r.mail_sent === false));
+            openMyLessons();
+            return;
+          }
+          App.toast(codeToMsg(r && r.code, r), true);
+        }).catch(function (err) { closeMyModal(); App.toast(errToMsg(err), true); });
+    }
+
+    // ---------- my-lessons modal helpers ----------
+    function myModalTitle(t) { document.getElementById('mTitle').textContent = t; }
+    function setMyButtons(list) {
+      var row = document.getElementById('mButtons'); row.innerHTML = '';
+      list.forEach(function (b) {
+        var btn = document.createElement('button');
+        btn.className = b.cls; btn.textContent = b.label; btn.onclick = b.fn;
+        row.appendChild(btn);
+      });
+    }
+    function openMyModal() { document.getElementById('myModal').classList.add('open'); }
+    function closeMyModal() { document.getElementById('myModal').classList.remove('open'); }
+
+    // =======================================================================
+    // FREE TRIAL — 공개 예약 (로그인 불필요). Calendly 스타일 월달력.
+    // =======================================================================
+
+    var tMonth = null;      // 'yyyy-MM'
+    var tData = null;       // getTrialMonth 응답
+    var tSelDate = null;    // 'yyyy-MM-dd'
+    var tSelSlot = null;    // {start_utc, time_label}
+
+    function openTrial() {
+      buildTrialTzSelect();
+      tMonth = null; tSelDate = null; tSelSlot = null;
+      showView('trialView');
+      trialStep(1);
+      loadTrialMonth(currentMonthIso());
+    }
+
+    function currentMonthIso() {
+      var d = new Date();
+      return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+    }
+    function shiftMonth(iso, delta) {
+      var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)) + delta;
+      if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
+      return y + '-' + ('0' + m).slice(-2);
+    }
+
+    function trialStep(n) {
+      ['trialStep1', 'trialStep2', 'trialStep3'].forEach(function (id, i) {
+        document.getElementById(id).classList.toggle('hidden', (i + 1) !== n);
+      });
+    }
+
+    function buildTrialTzSelect() {
+      var sel = document.getElementById('trialTz');
+      if (sel.options.length) return;
+      var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
+                   'America/Los_Angeles', 'Asia/Tokyo', 'UTC'];
+      if (zones.indexOf(App.tz) < 0) zones.unshift(App.tz);
+      sel.innerHTML = zones.map(function (z) {
+        return '<option value="' + esc(z) + '"' + (z === App.tz ? ' selected' : '') + '>' + esc(z) + '</option>';
+      }).join('');
+      sel.onchange = function () { App.tz = sel.value; loadTrialMonth(tMonth); };
+    }
+
+    function loadTrialMonth(monthIso) {
+      tMonth = monthIso || currentMonthIso();
+      document.getElementById('calGrid').innerHTML = '<p class="muted">…</p>';
+      document.getElementById('calTimes').innerHTML = '';
+      document.getElementById('calDayLabel').textContent = '';
+      App.call('getTrialMonth', tMonth, App.tz).then(function (d) {
+        tData = d; renderCalendar();
+      }).catch(function () {
+        document.getElementById('calGrid').innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>';
+      });
+    }
+
+    // ---- 공용 월달력 렌더러 (체험/개인수업이 같은 UI를 쓴다) ----
+    var MONTH_NAMES = {
+      en: ['January','February','March','April','May','June','July',
+           'August','September','October','November','December'],
+      fr: ['janvier','février','mars','avril','mai','juin','juillet',
+           'août','septembre','octobre','novembre','décembre']
+    };
+    var DOW_NAMES = { ko: ['월','화','수','목','금','토','일'],
+                      en: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                      fr: ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] };
+
+    function monthLabel(monthIso) {
+      var y = Number(monthIso.slice(0, 4)), m = Number(monthIso.slice(5, 7));
+      if (App.lang === 'ko') return y + '년 ' + m + '월';
+      return (MONTH_NAMES[App.lang] || MONTH_NAMES.en)[m - 1] + ' ' + y;
+    }
+
+    /**
+     * 월달력을 그린다.
+     *  ids     : {grid, month, times, dayLabel}
+     *  data    : monthSlots_ 응답
+     *  selDate : 선택된 'yyyy-MM-dd' (없으면 null)
+     *  onDate  : 날짜 클릭 콜백
+     */
+    function paintCalendar(ids, monthIso, data, selDate, onDate) {
+      document.getElementById(ids.month).textContent = monthLabel(monthIso);
+      var y = Number(monthIso.slice(0, 4)), m = Number(monthIso.slice(5, 7));
+      var dn = DOW_NAMES[App.lang] || DOW_NAMES.en;
+      var startCol = (new Date(y, m - 1, 1).getDay() + 6) % 7; // 월요일 시작
+      var daysInMonth = new Date(y, m, 0).getDate();
+
+      var html = '<table class="cal"><tr>';
+      dn.forEach(function (d) { html += '<th>' + d + '</th>'; });
+      html += '</tr><tr>';
+      for (var i = 0; i < startCol; i++) html += '<td></td>';
+      for (var day = 1; day <= daysInMonth; day++) {
+        if ((startCol + day - 1) % 7 === 0 && day !== 1) html += '</tr><tr>';
+        var ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + day).slice(-2);
+        var has = data && data.days && data.days[ymd] && data.days[ymd].length;
+        var cls = 'cal-day' + (has ? ' free' : '') + (ymd === selDate ? ' sel' : '');
+        html += '<td><button class="' + cls + '"' + (has ? ' data-d="' + ymd + '"' : ' disabled') +
+                '>' + day + '</button></td>';
+      }
+      html += '</tr></table>';
+      var grid = document.getElementById(ids.grid);
+      grid.innerHTML = html;
+      Array.prototype.forEach.call(grid.querySelectorAll('.cal-day.free'), function (b) {
+        b.onclick = function () { onDate(b.dataset.d); };
+      });
+    }
+
+    /** 선택한 날짜의 시간 버튼들을 그린다. */
+    function paintTimes(ids, data, ymd, emptyKey, onSlot) {
+      var box = document.getElementById(ids.times);
+      document.getElementById(ids.dayLabel).textContent = ymd.split('-').reverse().join('/');
+      var list = (data.days && data.days[ymd]) || [];
+      if (!list.length) { box.innerHTML = '<p class="muted">' + App.t(emptyKey) + '</p>'; return; }
+      box.innerHTML = '';
+      list.forEach(function (s) {
+        var b = document.createElement('button');
+        b.className = 'slot'; b.textContent = s.time_label;
+        b.onclick = function () { onSlot(s); };
+        box.appendChild(b);
+      });
+    }
+
+    var TRIAL_IDS = { grid: 'calGrid', month: 'calMonth', times: 'calTimes', dayLabel: 'calDayLabel' };
+
+    function renderCalendar() {
+      paintCalendar(TRIAL_IDS, tMonth, tData, tSelDate, selectTrialDate);
+    }
+
+    function selectTrialDate(ymd) {
+      tSelDate = ymd;
+      renderCalendar();
+      paintTimes(TRIAL_IDS, tData, ymd, 'trial_no_times', function (s) {
+        tSelSlot = s; goTrialDetails();
+      });
+    }
+
+    function goTrialDetails() {
+      document.getElementById('trialChosen').textContent =
+        tSelDate.split('-').reverse().join('/') + ' · ' + tSelSlot.time_label +
+        ' (' + App.tz + ')';
+      document.getElementById('trialErr').textContent = '';
+      trialStep(2);
+    }
+
+    function submitTrial() {
+      var name = document.getElementById('tfName').value.trim();
+      var email = document.getElementById('tfEmail').value.trim();
+      var err = document.getElementById('trialErr');
+      if (!name || !email) { err.textContent = App.t('trial_required'); return; }
+
+      var btn = document.getElementById('trialSubmit');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('bookTrialPublic', {
+        name: name, email: email,
+        phone: document.getElementById('tfPhone').value.trim(),
+        note: document.getElementById('tfNote').value.trim(),
+        start_utc: tSelSlot.start_utc, lang: App.lang, tz: App.tz
+      }).then(function (r) {
+        btn.disabled = false; btn.textContent = App.t('trial_submit');
+        if (r && r.ok) {
+          if (r.mail_sent === false) App.toast(App.t('mail_failed_note'), true);
+          document.getElementById('trialDoneWhen').textContent = r.when + ' (' + App.tz + ')';
+          var a = document.getElementById('trialDoneMeet');
+          var meetUrl = safeHttpsUrl(r.meet_link);
+          if (meetUrl) { a.href = meetUrl; a.textContent = meetUrl; }
+          else { a.removeAttribute('href'); a.textContent = ''; }
+          trialStep(3);
+          return;
+        }
+        var map = { TRIAL_USED: 'trial_err_used', ALREADY_BOOKED: 'trial_err_dup',
+                    SLOT_TAKEN: 'trial_err_taken', BOOK_TOO_LATE: 'trial_err_late',
+                    INVALID: 'trial_required', BUSY: 'trial_err_busy',
+                    SLOT_UNAVAILABLE: 'slot_unavailable' };
+        err.textContent = App.t(map[r && r.code] || 'error_generic');
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = App.t('trial_submit');
+        err.textContent = App.t('trial_err_taken');
+      });
+    }
+
+    // =======================================================================
+    // CONTACT — 학생이 강사에게 요청사항/피드백 전송
+    // =======================================================================
+
+    function openContact() {
+      document.getElementById('contactOk').classList.add('hidden');
+      document.getElementById('contactMsg').value = '';
+      showView('contactView');
+    }
+
+    function sendContact() {
+      var box = document.getElementById('contactMsg');
+      var msg = box.value.trim();
+      if (!msg) { App.toast(App.t('contact_empty'), true); return; }
+      var btn = document.getElementById('contactSend');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('sendContactMessage', App.getSession(), msg).then(function (r) {
+        btn.disabled = false; btn.textContent = App.t('contact_send');
+        if (r && r.ok) {
+          box.value = '';
+          var ok = document.getElementById('contactOk');
+          ok.textContent = App.t('contact_sent'); ok.classList.remove('hidden');
+        } else {
+          App.toast(App.t(r && r.code === 'EMPTY' ? 'contact_empty' : 'contact_fail'), true);
+        }
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = App.t('contact_send');
+        App.toast(App.t('contact_fail'), true);
+      });
+    }
+
+    // =======================================================================
+    // ADMIN (강사 전용) — 전체 예약 조회 / 대리 취소 · 일정변경
+    // =======================================================================
+
+    // ---- 관리자 서브탭 ----
+    var AD_PANELS = {
+      adTabBookings: 'adPanelBookings', adTabHours: 'adPanelHours',
+      adTabExc: 'adPanelExc', adTabNew: 'adPanelNew', adTabGrant: 'adPanelGrant',
+      adTabStudent: 'adPanelStudent', adTabDiag: 'adPanelDiag'
+    };
+    function adShowPanel(tabId) {
+      Object.keys(AD_PANELS).forEach(function (t) {
+        document.getElementById(t).className = (t === tabId) ? 'active' : '';
+        document.getElementById(AD_PANELS[t]).classList.toggle('hidden', t !== tabId);
+      });
+      if (tabId === 'adTabBookings') loadAdminBookings();
+      if (tabId === 'adTabHours') loadHours();
+      if (tabId === 'adTabExc') loadExceptions();
+      if (tabId === 'adTabNew') loadProxyBooking();
+      if (tabId === 'adTabGrant') loadGrantStudents();
+      if (tabId === 'adTabStudent') loadStudentViewList();
+    }
+
+    // ---- 학생 조회 ----
+    function loadStudentViewList() {
+      var sel = document.getElementById('svStudent');
+      if (sel.options.length) return;
+      App.call('adminListStudents', App.getSession()).then(function (list) {
+        sel.innerHTML = '<option value="">— 학생 선택 —</option>' +
+          (list || []).map(function (s) {
+            return '<option value="' + esc(s.email) + '">' + esc(s.name) + ' — ' + esc(s.email) + '</option>';
+          }).join('');
+        sel.onchange = function () {
+          if (sel.value) renderStudentView(sel.value);
+          else document.getElementById('svBody').innerHTML = '';
+        };
+      }).catch(function () { App.toast('학생 목록을 불러오지 못했습니다.', true); });
+    }
+
+    function renderStudentView(email) {
+      var box = document.getElementById('svBody');
+      box.innerHTML = '<p class="muted">…</p>';
+      App.call('adminGetStudent', App.getSession(), email, App.tz).then(function (d) {
+        if (!d || !d.ok) { box.innerHTML = '<p class="muted">학생을 찾을 수 없습니다.</p>'; return; }
+        var s = d.student;
+        var html = '';
+
+        // 프로필
+        html += '<div class="card"><strong>' + esc(s.name) + '</strong> · ' + esc(s.email) +
+          '<div class="muted" style="margin-top:6px">' +
+          '사용 언어: <b>' + esc(s.lang_label) + '</b> &nbsp;·&nbsp; ' +
+          '시간대: ' + esc(s.timezone) + ' &nbsp;·&nbsp; ' +
+          '무료체험: ' + (s.trial_used ? '사용함' : '미사용') +
+          (s.phone ? ' &nbsp;·&nbsp; ☎ ' + esc(s.phone) : '') +
+          (s.created_label ? ' &nbsp;·&nbsp; 등록 ' + esc(s.created_label) : '') +
+          '</div></div>';
+
+        // 총 크레딧
+        html += '<p style="margin:14px 0"><span class="chip">남은 수업: ' +
+                esc(d.total_credits) + '개</span></p>';
+
+        // 패키지
+        html += '<h4>패키지</h4>';
+        html += d.packs.length ? d.packs.map(function (p) {
+          var st = (p.status !== 'active') ? ' <span class="pill">' + esc(p.status) + '</span>' : '';
+          return '<div class="card"><strong>' + esc(p.pack_type) + '</strong>' + st +
+            '<div class="muted" style="margin-top:6px">' +
+            '남은 <b>' + esc(p.credits_remaining) + '</b>/' + esc(p.credits_total) + ' &nbsp;·&nbsp; ' +
+            '조커 <b>' + esc(p.joker_remaining) + '</b>/' + esc(p.joker_total) + ' &nbsp;·&nbsp; ' +
+            '구매 ' + esc(p.purchase_label) + ' &nbsp;·&nbsp; 만료 <b>' + esc(p.expiry_label) + '</b>' +
+            '</div>' +
+            (p.source ? '<div class="muted" style="font-size:11px;margin-top:4px">' + esc(p.source) + '</div>' : '') +
+            '</div>';
+        }).join('') : '<p class="muted">—</p>';
+
+        // 다가오는 수업
+        html += '<h4 style="margin-top:20px">다가오는 수업</h4>';
+        html += d.upcoming.length ? d.upcoming.map(function (b) {
+          var meetUrl = safeHttpsUrl(b.meet_link);
+          return '<div class="card lesson"><div><div class="when">' +
+            esc(b.day_label) + ' ' + esc(b.date_label) + ' ' + esc(b.time_label) + '</div>' +
+            '<div class="cat">' + (b.category === 'trial' ? '무료 체험' : '개인수업') +
+            ' · ' + esc(b.duration_min) + '분' +
+            (meetUrl ? ' · <a href="' + esc(meetUrl) + '" target="_blank" rel="noopener">Meet</a>' : '') +
+            '</div></div></div>';
+        }).join('') : '<p class="muted">—</p>';
+
+        // 지난 수업
+        html += '<h4 style="margin-top:20px">지난 수업</h4>';
+        html += d.past.length ? d.past.map(function (b) {
+          return '<div class="card lesson"><div><div class="when">' +
+            esc(b.day_label) + ' ' + esc(b.date_label) + ' ' + esc(b.time_label) + '</div>' +
+            '<div class="cat">' + (b.category === 'trial' ? '무료 체험' : '개인수업') +
+            ' · ' + esc(b.duration_min) + '분 · <span class="pill">' + esc(b.status) + '</span>' +
+            '</div></div></div>';
+        }).join('') : '<p class="muted">—</p>';
+
+        box.innerHTML = html;
+      }).catch(function () { box.innerHTML = '<p class="muted">불러오지 못했습니다.</p>'; });
+    }
+
+    // ---- 크레딧 팩 수동 지급 ----
+    function loadGrantStudents() {
+      var sel = document.getElementById('gpStudent');
+      if (sel.options.length) return;
+      App.call('adminListStudents', App.getSession()).then(function (list) {
+        sel.innerHTML = '<option value="">— 새 학생 (아래에 이메일 입력) —</option>' +
+          (list || []).map(function (s) {
+            return '<option value="' + esc(s.email) + '">' + esc(s.name) + ' — ' + esc(s.email) +
+                   ' (남은 ' + esc(s.credits_remaining) + '회)</option>';
+          }).join('');
+      }).catch(function () { App.toast('학생 목록을 불러오지 못했습니다.', true); });
+    }
+
+    function grantPack() {
+      var sel = document.getElementById('gpStudent');
+      var email = sel.value || document.getElementById('gpEmail').value.trim();
+      var res = document.getElementById('gpResult');
+      if (!email) { res.style.color = 'var(--warn)'; res.textContent = '학생을 선택하거나 이메일을 입력하세요.'; return; }
+
+      var btn = document.getElementById('gpSubmit');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('adminGrantPack', App.getSession(), {
+        email: email,
+        name: document.getElementById('gpName').value.trim(),
+        packType: document.getElementById('gpPack').value,
+        note: document.getElementById('gpNote').value.trim(),
+        notify: document.getElementById('gpNotify').checked
+      }).then(function (r) {
+        btn.disabled = false; btn.textContent = '지급하기';
+        if (r && r.ok) {
+          res.style.color = 'var(--plum)';
+          res.textContent = '✅ ' + r.email + ' → ' + r.pack_type + ' ' + r.credits + '회 지급 완료';
+          // 다음 입력을 위해 초기화 (학생 목록은 갱신)
+          document.getElementById('gpEmail').value = '';
+          document.getElementById('gpName').value = '';
+          document.getElementById('gpNote').value = '';
+          sel.innerHTML = ''; loadGrantStudents();
+        } else {
+          res.style.color = 'var(--warn)';
+          var msg = { INVALID_EMAIL: '이메일 형식이 올바르지 않습니다.',
+                      UNKNOWN_PACK_TYPE: '패키지 종류가 올바르지 않습니다.' };
+          res.textContent = msg[r && r.code] || '지급에 실패했습니다.';
+        }
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = '지급하기';
+        res.style.color = 'var(--warn)'; res.textContent = '지급에 실패했습니다.';
+      });
+    }
+
+    function openAdmin() {
+      showView('adminView');
+      adShowPanel('adTabBookings');
+    }
+
+    // =======================================================================
+    // ADMIN — 진단 (adminCheckSetup / adminDebugEmail)
+    // 서버에서 requireTeacher_ 로 막혀 있으므로, 여기 버튼은 편의일 뿐이다.
+    // =======================================================================
+
+    /** 진단 결과 표시. 값은 전부 textContent 로 넣는다(어떤 값이 와도 실행되지 않게). */
+    function renderDiag(title, d) {
+      var box = document.getElementById('diagResult');
+      box.innerHTML = '';
+      if (!d) { box.textContent = '결과를 받지 못했습니다.'; return; }
+
+      var card = document.createElement('div');
+      card.className = 'card';
+
+      var problems = d.problems || [];
+      var head = document.createElement('div');
+      head.style.fontWeight = '700';
+      head.style.color = problems.length ? 'var(--warn)' : 'var(--plum)';
+      head.textContent = title + ' — ' + (problems.length ? ('문제 ' + problems.length + '건') : '이상 없음 ✅');
+      card.appendChild(head);
+
+      if (problems.length) {
+        var ul = document.createElement('ul');
+        ul.style.margin = '10px 0 0'; ul.style.paddingLeft = '18px';
+        problems.forEach(function (p) {
+          var li = document.createElement('li');
+          li.style.fontSize = '.88rem'; li.style.lineHeight = '1.6';
+          li.textContent = p;
+          ul.appendChild(li);
+        });
+        card.appendChild(ul);
+      }
+
+      var pre = document.createElement('pre');
+      pre.style.cssText = 'margin:12px 0 0;padding:10px;background:var(--soft,#faf7f9);' +
+        'border-radius:8px;font-size:11px;line-height:1.5;overflow:auto;max-height:320px;white-space:pre-wrap';
+      pre.textContent = JSON.stringify(d, null, 2);
+      card.appendChild(pre);
+
+      box.appendChild(card);
+    }
+
+    function runDiag(fn, title, btnId) {
+      var btn = document.getElementById(btnId);
+      var label = btn.textContent;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      document.getElementById('diagResult').innerHTML = '<p class="muted">…</p>';
+      App.call(fn, App.getSession()).then(function (d) {
+        btn.disabled = false; btn.textContent = label;
+        renderDiag(title, d);
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = label;
+        var box = document.getElementById('diagResult');
+        box.innerHTML = '';
+        var p = document.createElement('p');
+        p.style.color = 'var(--warn)';
+        p.textContent = '실행 실패: ' + ((e && e.message) || e);
+        box.appendChild(p);
+      });
+    }
+
+    function loadAdminBookings() {
+      var el = document.getElementById('adminList');
+      el.innerHTML = '<p class="muted">…</p>';
+      App.call('adminListUpcoming', App.getSession(), App.tz).then(function (rows) {
+        if (!rows || !rows.length) { el.innerHTML = '<p class="muted">예정된 수업이 없습니다.</p>'; return; }
+        el.innerHTML = '';
+        rows.forEach(function (b) {
+          var div = document.createElement('div');
+          div.className = 'card lesson';
+          div.innerHTML =
+            '<div><div class="when">' + esc(b.day_label) + ' ' + esc(b.date_label) + ' ' + esc(b.time_label) + '</div>' +
+            '<div class="cat">' + esc(b.student_name) + ' (' + esc(b.student_email) + ') · ' +
+            (b.category === 'trial' ? '무료 체험' : '개인수업') + ' · ' + esc(b.lang_label) + '</div></div>' +
+            '<div class="actions"></div>';
+          var actions = div.querySelector('.actions');
+          var rb = document.createElement('button');
+          rb.className = 'btn ghost sm'; rb.textContent = '옮기기';
+          rb.onclick = function () { adminOpenReschedule(b); };
+          // 일정을 조정한 뒤 학생에게 한 번 더 알릴 때 쓴다 (자동 리마인더와 별개)
+          var nb = document.createElement('button');
+          nb.className = 'btn ghost sm'; nb.textContent = '알림 보내기';
+          nb.onclick = function () { adminConfirmReminder(b); };
+          var cb = document.createElement('button');
+          cb.className = 'btn danger sm'; cb.textContent = '취소';
+          cb.onclick = function () { adminConfirmCancel(b); };
+          actions.appendChild(rb); actions.appendChild(nb); actions.appendChild(cb);
+          el.appendChild(div);
+        });
+      }).catch(function () { el.innerHTML = '<p class="muted">불러오지 못했습니다.</p>'; });
+    }
+
+    function adminConfirmCancel(b) {
+      myModalTitle('수업 취소 (관리자)');
+      document.getElementById('mBody').textContent =
+        b.student_name + ' 님의 ' + b.date_label + ' ' + b.time_label +
+        ' 수업을 취소합니다. 크레딧은 복구되고 학생에게 취소 메일이 발송됩니다.';
+      document.getElementById('mSlots').classList.add('hidden');
+      setMyButtons([
+        { label: '닫기', cls: 'btn secondary', fn: closeMyModal },
+        { label: '취소 진행', cls: 'btn danger', fn: function () {
+          App.call('adminCancelBooking', App.getSession(), b.booking_id).then(function (r) {
+            closeMyModal();
+            if (r && r.ok) {
+              // 팩이 만료·환불된 상태면 크레딧을 되돌릴 수 없다 (4단계 M3)
+              App.toast(r.refund_blocked
+                ? '취소했습니다. 다만 패키지가 이미 만료/환불되어 크레딧은 복구하지 못했습니다.'
+                : '취소했습니다.', !!r.refund_blocked);
+            } else {
+              App.toast('실패했습니다.', true);
+            }
+            loadAdminBookings();
+          }).catch(function () { closeMyModal(); App.toast('실패했습니다.', true); });
+        } }
+      ]);
+      openMyModal();
+    }
+
+    /** 수업 안내 메일 수동 재발송 — 실제로 메일이 나가므로 확인 단계를 둔다. */
+    function adminConfirmReminder(b) {
+      myModalTitle('수업 안내 메일 보내기');
+      document.getElementById('mBody').textContent =
+        b.student_name + ' 님(' + b.student_email + ')에게 ' +
+        b.date_label + ' ' + b.time_label + ' 수업 안내 메일을 ' +
+        b.lang_label + '로 지금 보냅니다. 일정·Meet 링크가 함께 들어갑니다. ' +
+        '수업 24시간 전 자동 리마인더는 이것과 별개로 그대로 발송됩니다.';
+      document.getElementById('mSlots').classList.add('hidden');
+      setMyButtons([
+        { label: '닫기', cls: 'btn secondary', fn: closeMyModal },
+        { label: '보내기', cls: 'btn', fn: function () {
+          App.call('adminSendReminder', App.getSession(), b.booking_id).then(function (r) {
+            closeMyModal();
+            if (r && r.ok) { App.toast('안내 메일을 보냈습니다.'); return; }
+            var msg = { NOT_FOUND: '예약을 찾을 수 없습니다.',
+                        NOT_CONFIRMED: '확정 상태인 예약에만 보낼 수 있습니다.',
+                        SEND_FAILED: '발송에 실패했습니다. 관리자 → 진단에서 발송 한도를 확인해 보세요.' };
+            App.toast(msg[r && r.code] || '보내지 못했습니다.', true);
+          }).catch(function () { closeMyModal(); App.toast('보내지 못했습니다.', true); });
+        } }
+      ]);
+      openMyModal();
+    }
+
+    function adminOpenReschedule(b) {
+      myModalTitle('일정 변경 (관리자)');
+      document.getElementById('mBody').textContent =
+        b.student_name + ' 님의 수업을 옮길 시간을 선택하세요.';
+      var slotBox = document.getElementById('mSlots');
+      slotBox.classList.remove('hidden'); slotBox.innerHTML = '<p class="muted">…</p>';
+      setMyButtons([{ label: '닫기', cls: 'btn secondary', fn: closeMyModal }]);
+      openMyModal();
+      App.call('getFreeSlots', App.getSession(), b.category, weekStartIso(0), App.tz).then(function (slots) {
+        if (!slots.length) { slotBox.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; return; }
+        slotBox.innerHTML = '';
+        slots.slice(0, 60).forEach(function (s) {
+          var btn = document.createElement('button');
+          btn.className = 'btn ghost sm'; btn.style.margin = '3px';
+          btn.textContent = s.day_label + ' ' + s.date_display + ' ' + s.time_label;
+          btn.onclick = function () {
+            App.call('adminRescheduleBooking', App.getSession(), b.booking_id, s.start_utc).then(function (r) {
+              closeMyModal();
+              App.toast(r && r.ok ? '옮겼습니다.' : '실패했습니다.', !(r && r.ok));
+              loadAdminBookings();
+            }).catch(function () { closeMyModal(); App.toast('실패했습니다.', true); });
+          };
+          slotBox.appendChild(btn);
+        });
+      }).catch(function () { slotBox.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; });
+    }
+
+    // =======================================================================
+    // ADMIN — 근무시간 드래그 편집기
+    // 그리드: 07:00–22:00 을 30분 칸으로. 열 = 요일(월~일).
+    // 셀 상태는 Set('dow-slotIndex')로 관리하고, 저장 시 연속 구간으로 압축한다.
+    // =======================================================================
+
+    var HG_START_H = 7, HG_END_H = 22, HG_STEP = 30;
+    var hgCategory = 'private';
+    var hgSelected = {};            // { '1-6': true } → 월요일 10:00
+    var hgDragging = false, hgPaintMode = true;
+
+    var HG_DOW = [               // 화면 순서: 월→일 (실제 키는 0=일)
+      { key: '1', label: '월' }, { key: '2', label: '화' }, { key: '3', label: '수' },
+      { key: '4', label: '목' }, { key: '5', label: '금' }, { key: '6', label: '토' },
+      { key: '0', label: '일' }
+    ];
+
+    function hgSlotCount() { return (HG_END_H - HG_START_H) * (60 / HG_STEP); }
+    function hgIdxToTime(i) {
+      var mins = HG_START_H * 60 + i * HG_STEP;
+      return ('0' + Math.floor(mins / 60)).slice(-2) + ':' + ('0' + (mins % 60)).slice(-2);
+    }
+    function hgTimeToIdx(t) {
+      var p = t.split(':');
+      return (Number(p[0]) * 60 + Number(p[1]) - HG_START_H * 60) / HG_STEP;
+    }
+
+    function loadHours() {
+      document.getElementById('adHoursPrivate').className = (hgCategory === 'private') ? 'active' : '';
+      document.getElementById('adHoursTrial').className = (hgCategory === 'trial') ? 'active' : '';
+      App.call('adminGetSchedule', App.getSession(), hgCategory).then(function (s) {
+        hgSelected = {};
+        Object.keys(s.days || {}).forEach(function (dow) {
+          (s.days[dow] || []).forEach(function (r) {
+            var a = hgTimeToIdx(r[0]), b = hgTimeToIdx(r[1]);
+            for (var i = Math.max(0, a); i < Math.min(hgSlotCount(), b); i++) hgSelected[dow + '-' + i] = true;
+          });
+        });
+        renderHoursGrid();
+      }).catch(function () { App.toast('근무시간을 불러오지 못했습니다.', true); });
+    }
+
+    function renderHoursGrid() {
+      var n = hgSlotCount();
+      var html = '<table class="hgrid"><tr><th></th>';
+      HG_DOW.forEach(function (d) { html += '<th>' + esc(d.label) + '</th>'; }); // HG_DOW 는 로컬 상수지만 규칙을 예외 없이 지킨다
+      html += '</tr>';
+      for (var i = 0; i < n; i++) {
+        var t = hgIdxToTime(i);
+        var isHour = (t.slice(-2) === '00');
+        html += '<tr class="' + (isHour ? 'hour' : '') + '">';
+        html += '<td class="tlabel">' + (isHour ? t : '') + '</td>';
+        HG_DOW.forEach(function (d) {
+          var key = d.key + '-' + i;
+          html += '<td class="cell' + (hgSelected[key] ? ' on' : '') + '" data-k="' + key + '"></td>';
+        });
+        html += '</tr>';
+      }
+      html += '</table>';
+      var wrap = document.getElementById('hoursGrid');
+      wrap.innerHTML = html;
+
+      // 드래그 페인팅
+      Array.prototype.forEach.call(wrap.querySelectorAll('td.cell'), function (td) {
+        td.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          hgDragging = true;
+          hgPaintMode = !hgSelected[td.dataset.k]; // 켜진 칸에서 시작하면 지우기
+          hgApply(td);
+        });
+        td.addEventListener('mouseenter', function () { if (hgDragging) hgApply(td); });
+      });
+    }
+
+    function hgApply(td) {
+      var k = td.dataset.k;
+      if (hgPaintMode) { hgSelected[k] = true; td.classList.add('on'); }
+      else { delete hgSelected[k]; td.classList.remove('on'); }
+    }
+    document.addEventListener('mouseup', function () { hgDragging = false; });
+
+    /** 선택된 칸들을 요일별 연속 구간 [["HH:MM","HH:MM"], ...] 으로 압축. */
+    function hgToDays() {
+      var n = hgSlotCount(), days = {};
+      HG_DOW.forEach(function (d) {
+        var ranges = [], start = null;
+        for (var i = 0; i < n; i++) {
+          var on = !!hgSelected[d.key + '-' + i];
+          if (on && start === null) start = i;
+          if (!on && start !== null) { ranges.push([hgIdxToTime(start), hgIdxToTime(i)]); start = null; }
+        }
+        if (start !== null) ranges.push([hgIdxToTime(start), hgIdxToTime(n)]);
+        if (ranges.length) days[d.key] = ranges;
+      });
+      return days;
+    }
+
+    function saveHours() {
+      var btn = document.getElementById('adHoursSave');
+      btn.disabled = true;
+      App.call('adminSaveSchedule', App.getSession(), hgCategory, hgToDays()).then(function (r) {
+        btn.disabled = false;
+        App.toast(r && r.ok ? '근무시간을 저장했습니다.' : '저장 실패', !(r && r.ok));
+      }).catch(function () { btn.disabled = false; App.toast('저장 실패', true); });
+    }
+
+    // =======================================================================
+    // ADMIN — 날짜별 예외
+    // =======================================================================
+
+    function loadExceptions() {
+      var el = document.getElementById('excList');
+      el.innerHTML = '<p class="muted">…</p>';
+      App.call('adminListExceptions', App.getSession()).then(function (rows) {
+        if (!rows || !rows.length) { el.innerHTML = '<p class="muted">등록된 예외가 없습니다.</p>'; return; }
+        el.innerHTML = '';
+        rows.forEach(function (e) {
+          var span = (e.start_time && e.end_time) ? (e.start_time + '–' + e.end_time) : '종일';
+          var catLabel = { both: '개인+체험', private: '개인수업', trial: '체험' }[e.category] || e.category;
+          var typeLabel = (e.type === 'open') ? '➕ 추가 오픈' : '🚫 닫기';
+          var div = document.createElement('div');
+          div.className = 'card lesson';
+          div.innerHTML = '<div><div class="when">' + esc(e.date_label) + ' · ' + esc(span) + '</div>' +
+            '<div class="cat">' + typeLabel + ' · ' + esc(catLabel) + (e.note ? ' · ' + esc(e.note) : '') + '</div></div>' +
+            '<div class="actions"></div>';
+          var del = document.createElement('button');
+          del.className = 'btn danger sm'; del.textContent = '삭제';
+          del.onclick = function () {
+            App.call('adminDeleteException', App.getSession(), e.exception_id)
+              .then(function () { loadExceptions(); })
+              .catch(function () { App.toast('삭제 실패', true); });
+          };
+          div.querySelector('.actions').appendChild(del);
+          el.appendChild(div);
+        });
+      }).catch(function () { el.innerHTML = '<p class="muted">불러오지 못했습니다.</p>'; });
+    }
+
+    function addException() {
+      var ex = {
+        date: document.getElementById('excDate').value,
+        type: document.getElementById('excType').value,
+        category: document.getElementById('excCategory').value,
+        start_time: document.getElementById('excStart').value,
+        end_time: document.getElementById('excEnd').value
+      };
+      if (!ex.date) { App.toast('날짜를 선택하세요.', true); return; }
+      if (ex.type === 'open' && !(ex.start_time && ex.end_time)) {
+        App.toast('추가 오픈은 시작·종료 시간이 필요합니다.', true); return;
+      }
+      App.call('adminAddException', App.getSession(), ex).then(function (r) {
+        if (r && r.ok) {
+          App.toast('예외를 추가했습니다.');
+          document.getElementById('excStart').value = '';
+          document.getElementById('excEnd').value = '';
+          loadExceptions();
+        } else { App.toast('추가 실패', true); }
+      }).catch(function () { App.toast('추가 실패 — 입력값을 확인하세요.', true); });
+    }
+
+    // =======================================================================
+    // ADMIN — 대리 예약
+    // =======================================================================
+
+    var nbWeekOffset = 0;
+
+    function loadProxyBooking() {
+      var sel = document.getElementById('nbStudent');
+      if (!sel.options.length) {
+        App.call('adminListStudents', App.getSession()).then(function (list) {
+          sel.innerHTML = (list || []).map(function (s) {
+            return '<option value="' + esc(s.email) + '">' + esc(s.name) + ' — ' + esc(s.email) +
+                   ' (남은 ' + esc(s.credits_remaining) + '회' + (s.trial_used ? ', 체험 사용' : '') + ')</option>';
+          }).join('');
+          loadProxySlots();
+        }).catch(function () { App.toast('학생 목록을 불러오지 못했습니다.', true); });
+      } else { loadProxySlots(); }
+    }
+
+    function loadProxySlots() {
+      var el = document.getElementById('nbSlots');
+      el.innerHTML = '<p class="muted">…</p>';
+      var cat = document.getElementById('nbCategory').value;
+      var start = weekStartIso(nbWeekOffset);
+      document.getElementById('nbWeekRange').textContent = rangeLabel(start);
+      App.call('getFreeSlots', App.getSession(), cat, start, App.tz).then(function (slots) {
+        if (!slots || !slots.length) { el.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; return; }
+        var byDate = {};
+        slots.forEach(function (s) { (byDate[s.date_label] = byDate[s.date_label] || []).push(s); });
+        var html = '<div class="grid7">';
+        Object.keys(byDate).sort().forEach(function (d) {
+          var first = byDate[d][0];
+          html += '<div class="daycol"><h4>' + esc(first.day_label) + '<br>' + esc(first.date_display) + '</h4>';
+          byDate[d].forEach(function (s) {
+            html += '<button class="slot" data-utc="' + esc(s.start_utc) + '" data-lbl="' +
+                    esc(s.date_display_full + ' ' + s.time_label) + '">' + esc(s.time_label) + '</button>';
+          });
+          html += '</div>';
+        });
+        el.innerHTML = html + '</div>';
+        Array.prototype.forEach.call(el.querySelectorAll('.slot'), function (b) {
+          b.onclick = function () { proxyConfirm(b.getAttribute('data-utc'), b.getAttribute('data-lbl')); };
+        });
+      }).catch(function () { el.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; });
+    }
+
+    function proxyConfirm(utc, label) {
+      var sel = document.getElementById('nbStudent');
+      if (!sel.value) { App.toast('학생을 선택하세요.', true); return; }
+      var studentLabel = sel.options[sel.selectedIndex].textContent;
+      var cat = document.getElementById('nbCategory').value;
+      var useCredit = document.getElementById('nbUseCredit').checked;
+
+      myModalTitle('대리 예약 확인');
+      document.getElementById('mBody').textContent =
+        studentLabel + '\n' + label + ' · ' + (cat === 'trial' ? '무료 체험' : '개인수업') +
+        ' · ' + (useCredit ? '크레딧 차감' : '크레딧 차감 없음');
+      document.getElementById('mSlots').classList.add('hidden');
+      setMyButtons([
+        { label: '닫기', cls: 'btn secondary', fn: closeMyModal },
+        { label: '예약하기', cls: 'btn', fn: function () {
+          App.call('adminCreateBooking', App.getSession(), sel.value, cat, utc, { useCredit: useCredit })
+            .then(function (r) {
+              closeMyModal();
+              if (r && r.ok) { App.toast('예약했습니다.'); loadProxySlots(); }
+              else if (r && r.code === 'NO_CREDITS') { App.toast('이 학생은 남은 크레딧이 없습니다.', true); }
+              else { App.toast('예약 실패', true); }
+            }).catch(function () { closeMyModal(); App.toast('예약 실패', true); });
+        } }
+      ]);
+      openMyModal();
+    }
+
+    // ---------- view switch ----------
+    var VIEWS = ['loginView', 'codeView', 'trialView', 'bookView', 'doneView',
+                 'myView', 'contactView', 'adminView'];
+    function showView(id) {
+      VIEWS.forEach(function (v) {
+        document.getElementById(v).classList.toggle('hidden', v !== id);
+      });
+    }
+    function isViewOpen(id) {
+      return !document.getElementById(id).classList.contains('hidden');
+    }
+  </script>
 </body>
 </html>

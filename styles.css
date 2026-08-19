@@ -1,0 +1,217 @@
+/* styles.css — styles.html 의 <style> 내용 그대로. 폰트 <link> 는 index.html <head> 로 옮겼다. */
+  :root {
+    --plum: #3d0022;
+    --rose: #a1537c;
+    --rose-soft: #c98cae;
+    --bg: #ffffff;
+    --ink: #2a1420;
+    --muted: #7a6070;
+    --line: #ecdfe7;
+    --ok: #2e7d54;
+    --warn: #b23b3b;
+    --radius: 12px;
+    --shadow: 0 2px 14px rgba(61,0,34,0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    /* 한글은 Almarai에 없으므로 Noto Sans KR(고딕)로 자동 대체됨 */
+    font-family: 'Almarai', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+  }
+  h1, h2, h3, .brand {
+    /* 라틴 문자는 Baskerville(세리프) 유지, 한글은 Noto Sans KR(고딕)로 대체.
+       마지막 fallback을 sans-serif로 둬야 궁서/바탕으로 안 떨어진다. */
+    font-family: 'Libre Baskerville', Georgia, 'Noto Sans KR', sans-serif;
+    color: var(--plum);
+    margin: 0 0 .3em;
+  }
+  a { color: var(--rose); }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* 모바일 가로 넘침 방지.
+     overflow-x:hidden 은 쓰지 않는다 — 넘치는 내용을 '가려서' 잘린 것처럼 보이게 만들 뿐이다.
+     대신 넘치는 원인을 없앤다:
+       · box-sizing  : padding 이 너비를 키우지 않게
+       · min-width:0 : grid/flex 자식은 기본값(auto)이라 내용보다 작아지지 않아 밖으로 삐져나온다.
+                       이게 좁은 화면에서 오른쪽이 잘리던 실제 원인이다. */
+  * { box-sizing: border-box; }
+  html, body { max-width: 100%; }
+
+  /* iframe 임베드용 상단 완충 여백.
+     blablakorea.fr 코드 블록은 구글 경고 배너를 가리려고 iframe 을 위로 46px 민다.
+     그런데 그 배너는 **항상 있지는 않다** — 계정 상태나 사용자가 배너를 닫았는지에 따라
+     사라진다. 배너가 없는데 46px 를 자르면 우리 앱 헤더(로고·언어토글)가 잘려나간다.
+     그래서 여기서 46px 를 비워 둔다:
+       · 배너 있음 → 배너가 잘리고 이 여백이 위쪽 공백으로 보인다 (문제 없음)
+       · 배너 없음 → 이 여백이 잘리고 헤더는 온전하다
+     어느 쪽이든 내용이 사라지지 않는다. */
+  body { padding-top: 46px; }
+  img, pre { max-width: 100%; }
+  .trial-wrap > *, .cal-row > *, .grid7 > *, header.app > * { min-width: 0; }
+
+  /* Header */
+  header.app {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+    /* sticky 를 쓰지 않는다: iframe 을 위로 밀어 배너를 가리는 임베드 구조에서는
+       화면 최상단이 잘려나간 영역이라, sticky 헤더가 그 안에 숨어버린다. */
+    background: var(--bg); z-index: 5;
+  }
+  .brand { font-size: 1.35rem; font-weight: 700; }
+  .tagline { color: var(--rose); font-size: .78rem; font-style: italic; margin-top: -2px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  /* 좁은 화면(모바일 iframe 포함): 헤더가 가로로 넘쳐 브랜드명·언어토글이 잘리던 문제.
+     줄바꿈을 허용하고 요소 크기를 줄여 한 화면에 들어오게 한다. */
+  @media (max-width: 520px) {
+    header.app {
+      flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px 12px;
+    }
+    .brand { font-size: 1.1rem; }
+    .header-right { flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .chip { font-size: .72rem; padding: 4px 9px; }
+    .wrap { padding: 14px 10px 48px; }
+
+    /* 좌우 여백을 줄여 달력·시간목록이 화면 안에 들어오게 한다 */
+    .trial-side, .trial-main { padding: 16px 12px; }
+    .card { padding: 12px; }
+
+    /* 달력 칸을 화면 폭에 맞춰 유연하게 (고정 36px 이면 7칸이 안 들어가는 기기가 있다) */
+    table.cal td { padding: 2px; }
+    .cal-day { width: 100%; max-width: 38px; height: 34px; font-size: .8rem; }
+    table.cal th { font-size: .66rem; }
+
+    /* 헤더의 남은횟수 칩은 예약 화면 왼쪽에도 같은 값이 나오므로 모바일에선 숨긴다 */
+    header.app .chip { display: none; }
+  }
+  .chip {
+    background: var(--plum); color: #fff; border-radius: 999px;
+    padding: 5px 12px; font-size: .8rem; font-weight: 700; white-space: nowrap;
+  }
+  .chip.soft { background: var(--rose); }
+
+  /* Language toggle */
+  .lang-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .lang-toggle button {
+    border: 0; background: #fff; color: var(--muted); padding: 5px 10px;
+    font: inherit; font-size: .78rem; cursor: pointer;
+  }
+  .lang-toggle button.active { background: var(--plum); color: #fff; }
+
+  /* Buttons */
+  .btn {
+    display: inline-block; border: 0; border-radius: var(--radius); cursor: pointer;
+    font: inherit; font-weight: 700; padding: 11px 16px; background: var(--plum); color: #fff;
+    transition: transform .05s ease, opacity .15s ease;
+  }
+  .btn:hover { opacity: .92; }
+  .btn:active { transform: translateY(1px); }
+  .btn.secondary { background: #fff; color: var(--plum); border: 1px solid var(--rose); }
+  .btn.ghost { background: transparent; color: var(--rose); border: 1px solid var(--line); }
+  .btn.danger { background: var(--warn); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 6px 10px; font-size: .82rem; border-radius: 9px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin: 18px 0 10px; }
+  .tabs button {
+    flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  .tabs button.active { background: var(--rose); color: #fff; border-color: var(--rose); }
+
+  /* Week nav + tz */
+  .weeknav { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; gap: 10px; }
+  .weeknav .range { font-weight: 700; color: var(--plum); }
+  .tzrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 14px; color: var(--muted); font-size: .85rem; }
+  select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+
+  /* Slot grid */
+  .grid7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  @media (max-width: 640px) { .grid7 { grid-template-columns: repeat(3, 1fr); } }
+  .daycol { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; min-height: 60px; }
+  .daycol h4 { margin: 0 0 8px; font-size: .82rem; text-align: center; color: var(--muted); font-family: 'Almarai', 'Noto Sans KR', sans-serif; }
+  .slot {
+    display: block; width: 100%; margin: 5px 0; padding: 8px 6px; border: 1px solid var(--rose-soft);
+    background: #fff; color: var(--plum); border-radius: 9px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  .slot:hover { background: var(--rose); color: #fff; }
+  .empty-note { color: var(--muted); text-align: center; padding: 24px; }
+
+  /* Cards / lists */
+  .card { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 10px 0; box-shadow: var(--shadow); }
+  .lesson { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .lesson .when { font-weight: 700; color: var(--plum); }
+  .lesson .cat { font-size: .75rem; color: var(--muted); }
+  .lesson .actions { display: flex; gap: 6px; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; font-size: .72rem; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--plum); }
+
+  /* Modal */
+  .modal-back { position: fixed; inset: 0; background: rgba(42,20,32,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal-back.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 22px; max-width: 420px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .modal h3 { margin-top: 0; }
+  .modal .row { display: flex; gap: 8px; margin-top: 16px; }
+  .modal .row .btn { flex: 1; }
+
+  /* Toast */
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--plum); color: #fff; padding: 11px 18px; border-radius: 999px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .toast.show { opacity: 1; }
+  .toast.warn { background: var(--warn); }
+
+  /* 무료 체험 — Calendly 스타일 2단 레이아웃 */
+  .trial-wrap { display: grid; grid-template-columns: 280px 1fr; gap: 0;
+                border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+  .trial-side { padding: 22px; border-right: 1px solid var(--line); background: #fff; }
+  .trial-main { padding: 22px; }
+  @media (max-width: 760px) {
+    .trial-wrap { grid-template-columns: 1fr; }
+    .trial-side { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+
+  .cal-row { display: grid; grid-template-columns: 1fr 200px; gap: 20px; }
+  @media (max-width: 640px) { .cal-row { grid-template-columns: 1fr; } }
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-nav span { font-weight: 700; color: var(--plum); }
+
+  table.cal { width: 100%; border-collapse: collapse; }
+  table.cal th { font-size: .72rem; color: var(--muted); font-weight: 700; padding: 6px 0; }
+  table.cal td { text-align: center; padding: 3px; }
+  .cal-day {
+    width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent;
+    color: var(--muted); font: inherit; font-size: .85rem; cursor: default;
+  }
+  .cal-day.free { background: var(--rose-soft); color: var(--plum); font-weight: 700; cursor: pointer; }
+  .cal-day.free:hover { background: var(--rose); color: #fff; }
+  .cal-day.sel { background: var(--plum); color: #fff; font-weight: 700; }
+
+  .cal-times { max-height: 340px; overflow-y: auto; }
+  .cal-times .slot { margin: 6px 0; }
+
+  .tf-label { display: block; font-size: .8rem; font-weight: 700; color: var(--plum); margin: 12px 0 4px; }
+  .tf { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+        font: inherit; box-sizing: border-box; }
+
+  /* 관리자 근무시간 드래그 그리드 */
+  .hgrid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.hgrid { border-collapse: collapse; user-select: none; font-size: 11px; min-width: 420px; }
+  table.hgrid th { font-weight: 700; color: var(--muted); padding: 4px 2px; font-size: 11px; }
+  table.hgrid td.tlabel { color: var(--muted); text-align: right; padding-right: 6px; white-space: nowrap; width: 46px; }
+  table.hgrid td.cell {
+    width: 46px; height: 15px; border: 1px solid var(--line);
+    background: #fff; cursor: pointer;
+  }
+  table.hgrid td.cell.on { background: var(--rose); border-color: var(--rose); }
+  table.hgrid tr.hour td.cell { border-top-color: var(--muted); }
+
+  /* Login */
+  .login-box { max-width: 420px; margin: 40px auto; text-align: center; }
+  .login-box input[type=email] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; margin: 12px 0; }
+  .center { text-align: center; }
+  .hidden { display: none !important; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
