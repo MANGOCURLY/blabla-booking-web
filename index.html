@@ -188,7 +188,26 @@
         <button class="btn ghost sm" id="logoutBtn"></button>
       </p>
 
-      <h2 id="summaryTitle"></h2>
+      <!-- 국가 / 시간대 설정 (종혁 2026-08 요청).
+           country 는 시간대 목록을 좁히는 보조 정보일 뿐, 시각 계산은 timezone 만 쓴다. -->
+      <h2 id="settingsTitle"></h2>
+      <div class="card">
+        <!-- .row 는 styles.css 에서 .modal 안에만 정의돼 있어 여기선 안 먹는다. 인라인으로 둔다. -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <label style="display:block">
+            <span class="muted" id="lblCountry"></span><br>
+            <select id="setCountry"></select>
+          </label>
+          <label style="display:block">
+            <span class="muted" id="lblTimezone"></span><br>
+            <select id="setTz"></select>
+          </label>
+          <button class="btn sm" id="setSaveBtn"></button>
+        </div>
+        <div class="muted" id="setNote" style="margin-top:8px"></div>
+      </div>
+
+      <h2 id="summaryTitle" style="margin-top:26px"></h2>
       <div id="packs"></div>
 
       <h2 id="upcomingTitle" style="margin-top:26px"></h2>
@@ -467,6 +486,9 @@
       set('cmCancel', 'cancel_btn'); set('cmConfirm', 'confirm_btn');
       // my-lessons view (§8.2)
       set('toBooking', 'to_booking'); set('logoutBtn', 'logout');
+      set('settingsTitle', 'settings_title');
+      set('lblCountry', 'label_country'); set('lblTimezone', 'label_timezone');
+      set('setSaveBtn', 'save'); set('setNote', 'tz_note');
       set('summaryTitle', 'summary_title');
       set('upcomingTitle', 'upcoming'); set('pastTitle', 'past');
       // contact (§ 문의 폼)
@@ -516,6 +538,8 @@
       document.getElementById('toMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
       document.getElementById('doneMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
       document.getElementById('toBooking').onclick = function () { showView('bookView'); loadSlots(); };
+      document.getElementById('setCountry').onchange = function (e) { buildSetTzSelect(e.target.value, null); };
+      document.getElementById('setSaveBtn').onclick = saveSettings;
       document.getElementById('toContact').onclick = function () { openContact(); };
       document.getElementById('contactBack').onclick = function () { showView('bookView'); };
       document.getElementById('contactSend').onclick = sendContact;
@@ -796,7 +820,112 @@
       });
     }
 
-    function renderMyAll() { renderPacks(); renderUpcoming(); renderPast(); }
+    function renderMyAll() { renderSettings(); renderPacks(); renderUpcoming(); renderPast(); }
+
+    // ---------- 국가 / 시간대 설정 (§8.2 확장, 종혁 2026-08) ----------
+    // country 는 **시간 계산에 쓰지 않는다.** 시각의 진실 소스는 timezone 하나뿐이고,
+    // 국가는 아래 목록에서 시간대 선택지를 좁혀주는 역할만 한다.
+    // 자주 쓰는 20개국 + '기타'. 새 나라 학생이 오면 여기 한 줄만 추가하면 된다.
+    var COUNTRY_TZ = {
+      FR: ['Europe/Paris'],
+      GB: ['Europe/London'],
+      BE: ['Europe/Brussels'],
+      CH: ['Europe/Zurich'],
+      LU: ['Europe/Luxembourg'],
+      DE: ['Europe/Berlin'],
+      NL: ['Europe/Amsterdam'],
+      ES: ['Europe/Madrid', 'Atlantic/Canary'],
+      PT: ['Europe/Lisbon', 'Atlantic/Azores'],
+      IT: ['Europe/Rome'],
+      IE: ['Europe/Dublin'],
+      US: ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix',
+           'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu'],
+      CA: ['America/St_Johns', 'America/Halifax', 'America/Toronto',
+           'America/Winnipeg', 'America/Edmonton', 'America/Vancouver'],
+      KR: ['Asia/Seoul'],
+      JP: ['Asia/Tokyo'],
+      PH: ['Asia/Manila'],
+      VN: ['Asia/Ho_Chi_Minh'],
+      TH: ['Asia/Bangkok'],
+      SG: ['Asia/Singapore'],
+      AU: ['Australia/Perth', 'Australia/Darwin', 'Australia/Brisbane',
+           'Australia/Adelaide', 'Australia/Melbourne', 'Australia/Sydney']
+    };
+    // '기타'를 고른 학생에게 보여줄 시간대. 여기 없는 값이어도 감지된 값은 그대로 유지된다.
+    var OTHER_TZ = ['UTC', 'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Moscow',
+                    'Africa/Casablanca', 'Africa/Lagos', 'Africa/Johannesburg',
+                    'America/Sao_Paulo', 'America/Mexico_City', 'Asia/Dubai',
+                    'Asia/Kolkata', 'Asia/Jakarta', 'Asia/Shanghai', 'Asia/Taipei',
+                    'Pacific/Auckland'];
+    // Intl.DisplayNames 가 없는 브라우저용 최소 대비책.
+    var COUNTRY_FALLBACK = {
+      FR: 'France', GB: 'United Kingdom', BE: 'Belgium', CH: 'Switzerland',
+      LU: 'Luxembourg', DE: 'Germany', NL: 'Netherlands', ES: 'Spain',
+      PT: 'Portugal', IT: 'Italy', IE: 'Ireland', US: 'United States',
+      CA: 'Canada', KR: 'South Korea', JP: 'Japan', PH: 'Philippines',
+      VN: 'Vietnam', TH: 'Thailand', SG: 'Singapore', AU: 'Australia'
+    };
+
+    function countryName(code) {
+      try {
+        return new Intl.DisplayNames([App.lang], { type: 'region' }).of(code) ||
+               COUNTRY_FALLBACK[code] || code;
+      } catch (e) { return COUNTRY_FALLBACK[code] || code; }
+    }
+
+    /** 시간대 → 국가 역추적. country 가 비어 있는 기존 학생의 초기값을 채운다. */
+    function countryFromTz(tz) {
+      for (var c in COUNTRY_TZ) {
+        if (COUNTRY_TZ[c].indexOf(tz) >= 0) return c;
+      }
+      return '';
+    }
+
+    function renderSettings() {
+      // 저장된 값이 우선이다. 메일이 실제로 쓰는 건 브라우저 감지값이 아니라 이쪽이다.
+      var tz = (myData && myData.student_tz) || App.tz;
+      var country = (myData && myData.country) || countryFromTz(tz);
+      buildSetCountrySelect(country);
+      buildSetTzSelect(country, tz);
+    }
+
+    function buildSetCountrySelect(selected) {
+      var codes = Object.keys(COUNTRY_TZ).sort(function (a, b) {
+        return countryName(a).localeCompare(countryName(b), App.lang);
+      });
+      var html = codes.map(function (c) {
+        return '<option value="' + esc(c) + '"' + (c === selected ? ' selected' : '') +
+               '>' + esc(countryName(c)) + '</option>';
+      });
+      html.push('<option value="__other"' + (selected ? '' : ' selected') + '>' +
+                esc(App.t('country_other')) + '</option>');
+      document.getElementById('setCountry').innerHTML = html.join('');
+    }
+
+    function buildSetTzSelect(country, selected) {
+      var sel = document.getElementById('setTz');
+      var zones = (COUNTRY_TZ[country] || OTHER_TZ).slice();
+      // 현재 값이 목록에 없으면 맨 앞에 끼워 넣는다 — 저장된 시간대를 화면이 지워버리면 안 된다.
+      if (selected && zones.indexOf(selected) < 0) zones.unshift(selected);
+      var pick = selected || zones[0];
+      sel.innerHTML = zones.map(function (z) {
+        return '<option value="' + esc(z) + '"' + (z === pick ? ' selected' : '') +
+               '>' + esc(z) + '</option>';
+      }).join('');
+    }
+
+    function saveSettings() {
+      var c = document.getElementById('setCountry').value;
+      var tz = document.getElementById('setTz').value;
+      App.call('setMyPrefs', App.getSession(), App.lang, tz, (c === '__other' ? '' : c))
+        .then(function (r) {
+          if (!r || !r.ok) { App.toast(App.t('save_failed'), true); return; }
+          App.tz = tz;        // 화면 표기도 즉시 새 시간대 기준으로
+          App.toast(App.t('saved_ok'));
+          openMyLessons();    // 수업 시각 라벨 다시 계산
+        })
+        .catch(function () { App.toast(App.t('save_failed'), true); });
+    }
 
     function renderPacks() {
       var el = document.getElementById('packs');
