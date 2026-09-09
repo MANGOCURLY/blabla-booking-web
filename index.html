@@ -242,6 +242,7 @@
         <button id="adTabExc">날짜 예외</button>
         <button id="adTabNew">대리 예약</button>
         <button id="adTabGrant">크레딧 지급</button>
+        <button id="adTabB2b">B2B 상담</button>
         <button id="adTabStudent">학생 조회</button>
         <button id="adTabDiag">진단</button>
       </div>
@@ -314,6 +315,31 @@
           </div>
         </div>
         <div id="nbSlots" style="margin-top:14px"></div>
+      </div>
+
+      <!-- 4-b) B2B 온라인 상담 (종혁 2026-09) -->
+      <div id="adPanelB2b" class="hidden">
+        <p class="muted">한국어 수업과 무관한 <b>B2B 온라인 상담</b>을 잡습니다.
+          이름·이메일·일시를 넣으면 Google Meet 링크가 만들어지고, 상대에게 상담 전용
+          한국어 확정 메일이 나갑니다. 크레딧은 차감되지 않고, 수업 리마인더도 보내지 않습니다.</p>
+        <div class="card">
+          <label class="tf-label">이름</label>
+          <input type="text" id="b2bName" class="tf" placeholder="예: 김민수">
+
+          <label class="tf-label">이메일</label>
+          <input type="email" id="b2bEmail" class="tf" placeholder="contact@company.co.kr">
+
+          <label class="tf-label">상대 시간대 — 확정 메일에 이 시간대로 표기됩니다</label>
+          <select id="b2bTz" class="tf"></select>
+
+          <label class="tf-label">일시 — <b>내 시간대 기준</b>으로 입력하세요</label>
+          <input type="datetime-local" id="b2bWhen" class="tf" step="900">
+
+          <div class="muted" id="b2bPreview" style="margin-top:10px;line-height:1.8"></div>
+
+          <button class="btn" id="b2bSubmit" style="width:100%;margin-top:14px">상담 예약하기</button>
+          <p id="b2bResult" style="margin-top:8px;font-size:.9rem"></p>
+        </div>
       </div>
 
       <!-- 5) 크레딧 팩 수동 지급 -->
@@ -568,6 +594,7 @@
       // 대리 예약
       document.getElementById('nbCategory').onchange = function () { nbWeekOffset = 0; loadProxySlots(); };
       document.getElementById('gpSubmit').onclick = grantPack;
+      document.getElementById('b2bSubmit').onclick = createB2bBooking;
       document.getElementById('nbPrevWeek').onclick = function () { nbWeekOffset--; loadProxySlots(); };
       document.getElementById('nbNextWeek').onclick = function () { nbWeekOffset++; loadProxySlots(); };
       document.getElementById('logoutBtn').onclick = function () {
@@ -678,11 +705,12 @@
     function buildTzSelect() {
       var sel = document.getElementById('tzSelect');
       var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
-                   'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney', 'UTC'];
+                   'America/Toronto', 'America/Vancouver', 'America/Los_Angeles', 'Asia/Tokyo',
+                   'Australia/Sydney', 'UTC'];
       var detected = App.tz;
       if (zones.indexOf(detected) < 0) zones.unshift(detected);
       sel.innerHTML = zones.map(function (z) {
-        return '<option value="' + esc(z) + '"' + (z === detected ? ' selected' : '') + '>' + esc(z) + '</option>';
+        return '<option value="' + esc(z) + '"' + (z === detected ? ' selected' : '') + '>' + esc(tzOptionLabel(z)) + '</option>';
       }).join('');
     }
 
@@ -857,6 +885,17 @@
                     'America/Sao_Paulo', 'America/Mexico_City', 'Asia/Dubai',
                     'Asia/Kolkata', 'Asia/Jakarta', 'Asia/Shanghai', 'Asia/Taipei',
                     'Pacific/Auckland'];
+    // IANA 이름이 학생이 실제 사는 도시를 감추는 경우에만 적는다 (퀘벡 학생, 종혁 2026-09).
+    // 여기 없는 시간대는 ID 를 그대로 보여준다. 저장되는 값은 언제나 IANA ID 다.
+    var TZ_CITY = {
+      'America/Toronto': 'Montréal · Québec · Ottawa · Toronto',
+      'America/Edmonton': 'Calgary · Edmonton',
+      'Europe/Zurich': 'Genève · Zurich'
+    };
+    function tzOptionLabel(tz) {
+      return TZ_CITY[tz] ? (tz + ' — ' + TZ_CITY[tz]) : tz;
+    }
+
     // Intl.DisplayNames 가 없는 브라우저용 최소 대비책.
     var COUNTRY_FALLBACK = {
       FR: 'France', GB: 'United Kingdom', BE: 'Belgium', CH: 'Switzerland',
@@ -910,7 +949,7 @@
       var pick = selected || zones[0];
       sel.innerHTML = zones.map(function (z) {
         return '<option value="' + esc(z) + '"' + (z === pick ? ' selected' : '') +
-               '>' + esc(z) + '</option>';
+               '>' + esc(tzOptionLabel(z)) + '</option>';
       }).join('');
     }
 
@@ -1148,10 +1187,10 @@
       var sel = document.getElementById('trialTz');
       if (sel.options.length) return;
       var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
-                   'America/Los_Angeles', 'Asia/Tokyo', 'UTC'];
+                   'America/Toronto', 'America/Vancouver', 'America/Los_Angeles', 'Asia/Tokyo', 'UTC'];
       if (zones.indexOf(App.tz) < 0) zones.unshift(App.tz);
       sel.innerHTML = zones.map(function (z) {
-        return '<option value="' + esc(z) + '"' + (z === App.tz ? ' selected' : '') + '>' + esc(z) + '</option>';
+        return '<option value="' + esc(z) + '"' + (z === App.tz ? ' selected' : '') + '>' + esc(tzOptionLabel(z)) + '</option>';
       }).join('');
       sel.onchange = function () { App.tz = sel.value; loadTrialMonth(tMonth); };
     }
@@ -1331,6 +1370,7 @@
     var AD_PANELS = {
       adTabBookings: 'adPanelBookings', adTabHours: 'adPanelHours',
       adTabExc: 'adPanelExc', adTabNew: 'adPanelNew', adTabGrant: 'adPanelGrant',
+      adTabB2b: 'adPanelB2b',
       adTabStudent: 'adPanelStudent', adTabDiag: 'adPanelDiag'
     };
     function adShowPanel(tabId) {
@@ -1343,6 +1383,7 @@
       if (tabId === 'adTabExc') loadExceptions();
       if (tabId === 'adTabNew') loadProxyBooking();
       if (tabId === 'adTabGrant') loadGrantStudents();
+      if (tabId === 'adTabB2b') initB2bPanel();
       if (tabId === 'adTabStudent') loadStudentViewList();
     }
 
@@ -1422,6 +1463,88 @@
 
         box.innerHTML = html;
       }).catch(function () { box.innerHTML = '<p class="muted">불러오지 못했습니다.</p>'; });
+    }
+
+    // ---- B2B 온라인 상담 (종혁 2026-09) ----
+    // 수업이 아니라 대표 상담이라 슬롯 그리드를 쓰지 않는다. 상대와 이미 합의한 시각을
+    // 강사가 직접 넣는 흐름이고, 겹침 검사는 서버(validateSlotFree_)가 한다.
+    var B2B_ZONES = ['Asia/Seoul', 'Europe/Paris', 'Europe/London', 'Asia/Tokyo',
+                     'America/New_York', 'America/Los_Angeles'];
+
+    function initB2bPanel() {
+      var sel = document.getElementById('b2bTz');
+      if (!sel.options.length) {
+        sel.innerHTML = B2B_ZONES.map(function (z) {
+          return '<option value="' + esc(z) + '">' + esc(z) + '</option>';
+        }).join('');
+        sel.value = 'Asia/Seoul';
+        sel.onchange = renderB2bPreview;
+        document.getElementById('b2bWhen').oninput = renderB2bPreview;
+      }
+      renderB2bPreview();
+    }
+
+    // 입력한 시각이 상대 시간대로 몇 시가 되는지 미리 보여준다.
+    // 발송 전 마지막 확인 관문이라 모달을 따로 두지 않는다.
+    function renderB2bPreview() {
+      var box = document.getElementById('b2bPreview');
+      var v = document.getElementById('b2bWhen').value;
+      var tz = document.getElementById('b2bTz').value;
+      if (!v) { box.textContent = ''; return; }
+      var d = new Date(v); // datetime-local 은 브라우저 로컬 시간으로 해석된다
+      if (isNaN(d.getTime())) { box.textContent = ''; return; }
+      function fmt(zone) {
+        try {
+          return d.toLocaleString('ko-KR',
+            { timeZone: zone, dateStyle: 'full', timeStyle: 'short' });
+        } catch (e) { return '—'; }
+      }
+      box.innerHTML =
+        '내 시간 · <b>' + esc(fmt(App.tz)) + '</b><br>' +
+        '상대 (' + esc(tz) + ') · <b>' + esc(fmt(tz)) + '</b> ← 메일에 나가는 시각';
+    }
+
+    function createB2bBooking() {
+      var name = document.getElementById('b2bName').value.trim();
+      var email = document.getElementById('b2bEmail').value.trim();
+      var tz = document.getElementById('b2bTz').value;
+      var v = document.getElementById('b2bWhen').value;
+      var res = document.getElementById('b2bResult');
+      res.style.color = 'var(--warn)';
+      if (!name) { res.textContent = '이름을 입력하세요.'; return; }
+      if (!email) { res.textContent = '이메일을 입력하세요.'; return; }
+      if (!v) { res.textContent = '일시를 입력하세요.'; return; }
+      var d = new Date(v);
+      if (isNaN(d.getTime())) { res.textContent = '일시가 올바르지 않습니다.'; return; }
+      if (d.getTime() <= Date.now()) { res.textContent = '지난 시각으로는 예약할 수 없습니다.'; return; }
+
+      var btn = document.getElementById('b2bSubmit');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('adminCreateBooking', App.getSession(), email, 'b2b', d.toISOString(),
+               { name: name, timezone: tz })
+        .then(function (r) {
+          btn.disabled = false; btn.textContent = '상담 예약하기';
+          if (r && r.ok) {
+            res.style.color = 'var(--plum)';
+            res.innerHTML = '✅ 예약 완료 — ' + esc(email) +
+              (r.mail_sent ? ' · 확정 메일 발송됨' : ' · ⚠️ 메일이 나가지 않았습니다') +
+              (r.meet_link ? '<br>Meet · ' + esc(r.meet_link) : '');
+            document.getElementById('b2bName').value = '';
+            document.getElementById('b2bEmail').value = '';
+            document.getElementById('b2bWhen').value = '';
+            renderB2bPreview();
+          } else {
+            res.textContent = (r && r.code === 'INVALID_EMAIL')
+              ? '이메일 형식이 올바르지 않습니다.' : '예약에 실패했습니다.';
+          }
+        })
+        .catch(function (e) {
+          btn.disabled = false; btn.textContent = '상담 예약하기';
+          res.style.color = 'var(--warn)';
+          var m = String(e);
+          res.textContent = (m.indexOf('SLOT') >= 0 || m.indexOf('BUSY') >= 0)
+            ? '그 시간에 이미 다른 일정이 있습니다.' : '예약에 실패했습니다.';
+        });
     }
 
     // ---- 크레딧 팩 수동 지급 ----

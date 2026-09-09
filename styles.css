@@ -111,7 +111,7 @@
   .btn.sm { padding: 6px 10px; font-size: .82rem; border-radius: 9px; }
 
   /* Tabs */
-  .tabs { display: flex; gap: 6px; margin: 18px 0 10px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 10px; }
   .tabs button {
     flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--muted);
     border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer;
