@@ -182,7 +182,15 @@
   }
   .cal-day.free { background: var(--rose-soft); color: var(--plum); font-weight: 700; cursor: pointer; }
   .cal-day.free:hover { background: var(--rose); color: #fff; }
+  /* 강사 일정 변경: 추천 시간은 없지만 직접 입력할 수 있는 날 */
+  .cal-day.open { color: var(--plum); font-weight: 600; cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); }
+  .cal-day.open:hover { background: var(--rose-soft); }
   .cal-day.sel { background: var(--plum); color: #fff; font-weight: 700; }
+
+  /* 달력 아래 국가 + 시간대 선택 (종혁 2026-09) */
+  .tzpick { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: .8rem; }
+  .tzpick label { min-width: 0; }
+  .tzpick select { max-width: 100%; margin-top: 2px; }
 
   .cal-times { max-height: 340px; overflow-y: auto; }
   .cal-times .slot { margin: 6px 0; }

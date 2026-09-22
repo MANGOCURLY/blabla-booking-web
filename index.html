@@ -154,9 +154,14 @@
                 <button class="btn ghost sm" id="bkNext">›</button>
               </div>
               <div id="bkGrid"></div>
-              <p class="muted" style="font-size:.8rem;margin-top:10px">
-                <span id="tzLabel"></span> <select id="tzSelect"></select>
-              </p>
+              <!-- 국가를 고르면 그 나라 시간대만 남는다 (종혁 2026-09).
+                   고른 값은 서버에 저장돼 안내 메일 시각도 같은 기준이 된다. -->
+              <div class="tzpick">
+                <label><span class="muted" id="bkCountryLbl"></span><br>
+                  <select id="bkCountry"></select></label>
+                <label><span class="muted" id="tzLabel"></span><br>
+                  <select id="tzSelect"></select></label>
+              </div>
             </div>
             <div class="cal-times">
               <h4 id="bkDayLabel" style="margin:0 0 8px"></h4>
@@ -179,6 +184,108 @@
       </p>
     </section>
 
+    <!-- RESCHEDULE VIEW — 예약 화면과 같은 구성 (종혁 2026-09).
+         예전에는 좁은 모달 안에 달력을 넣어 스크롤해야 했다. -->
+    <section id="rsView" class="hidden">
+      <p style="margin:0 0 14px">
+        <button class="btn secondary sm" id="rsBack"></button>
+      </p>
+
+      <div class="trial-wrap">
+        <aside class="trial-side">
+          <h2 id="rsTitle" style="margin:0"></h2>
+          <p class="muted" id="rsSub" style="margin-top:8px"></p>
+          <div class="card" style="margin-top:14px">
+            <div class="muted" id="rsCurrentLbl" style="font-size:.8rem"></div>
+            <div class="when" id="rsCurrent"></div>
+          </div>
+          <p class="muted" id="rsNote" style="font-size:.8rem;margin-top:14px"></p>
+          <p class="muted" id="rsDateHint" style="font-size:.8rem;margin-top:10px"></p>
+        </aside>
+
+        <div class="trial-main">
+          <h3 id="rsPickDate"></h3>
+          <div class="cal-row">
+            <div class="cal-box">
+              <div class="cal-nav">
+                <button class="btn ghost sm" id="rsPrev">‹</button>
+                <span id="rsMonth"></span>
+                <button class="btn ghost sm" id="rsNext">›</button>
+              </div>
+              <div id="rsGrid"></div>
+              <div class="tzpick">
+                <label><span class="muted" id="rsCountryLbl"></span><br>
+                  <select id="rsCountry"></select></label>
+                <label><span class="muted" id="rsTzLbl"></span><br>
+                  <select id="rsTz"></select></label>
+              </div>
+            </div>
+            <div class="cal-times">
+              <h4 id="rsDayLabel" style="margin:0 0 8px"></h4>
+              <div id="rsTimes"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN RESCHEDULE VIEW — 강사용 일정 변경 (종혁 2026-09).
+         예전에는 모달에 '이번 주 빈 시간' 몇 개만 떠서 고를 게 없었다.
+         지금은 월 달력에서 **아무 날짜나** 고르고, 추천 시간을 누르거나 직접 입력한다.
+         서버 adminRescheduleBooking 은 겹침만 막고 근무시간·24시간 규칙은 보지 않는다. -->
+    <section id="arView" class="hidden">
+      <p style="margin:0 0 14px">
+        <button class="btn secondary sm" id="arBack">← 관리자</button>
+      </p>
+
+      <div class="trial-wrap">
+        <aside class="trial-side">
+          <h2 style="margin:0">일정 변경 (관리자)</h2>
+          <p class="muted" id="arWho" style="margin-top:8px"></p>
+          <div class="card" style="margin-top:14px">
+            <div class="muted" style="font-size:.8rem">지금 잡혀 있는 수업</div>
+            <div class="when" id="arCurrent"></div>
+          </div>
+          <p class="muted" style="font-size:.8rem;margin-top:14px">
+            강사 권한이라 근무시간·24시간 규칙과 상관없이 옮길 수 있습니다.
+            다른 일정과 겹치는 시간만 막힙니다. 옮기면 학생에게 변경 메일이 나갑니다.</p>
+          <p class="muted" style="font-size:.8rem;margin-top:10px">
+            📅 색이 찬 날짜는 추천 시간이 있는 날입니다. 테두리만 있는 날짜도 눌러서 시간을 직접 입력할 수 있습니다.</p>
+        </aside>
+
+        <div class="trial-main">
+          <h3>날짜를 고르세요</h3>
+          <div class="cal-row">
+            <div class="cal-box">
+              <div class="cal-nav">
+                <button class="btn ghost sm" id="arPrev">‹</button>
+                <span id="arMonth"></span>
+                <button class="btn ghost sm" id="arNext">›</button>
+              </div>
+              <div id="arGrid"></div>
+              <div class="tzpick">
+                <label><span class="muted">국가</span><br>
+                  <select id="arCountry"></select></label>
+                <label><span class="muted">시간대</span><br>
+                  <select id="arTz"></select></label>
+              </div>
+            </div>
+            <div class="cal-times">
+              <h4 id="arDayLabel" style="margin:0 0 8px"></h4>
+              <div id="arTimes"></div>
+              <!-- 추천 시간에 없는 시각은 여기서 직접 넣는다 -->
+              <div id="arManual" class="hidden" style="margin-top:12px">
+                <label class="tf-label" for="arTime">직접 입력</label>
+                <input type="time" id="arTime" class="tf" step="900">
+                <button class="btn sm" id="arManualBtn" style="width:100%;margin-top:8px">이 시간으로</button>
+                <p id="arErr" style="color:var(--warn);font-size:.8rem;margin-top:6px"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- MY LESSONS VIEW (§8.2) — 별도 페이지가 아니라 같은 문서의 뷰.
          Apps Script는 샌드박스 iframe 안에서 돌아가 페이지 이동이 깨지므로,
          화면 전환만으로 처리한다(iframe 임베드 시에도 안전). -->
@@ -188,11 +295,11 @@
         <button class="btn ghost sm" id="logoutBtn"></button>
       </p>
 
-      <!-- 국가 / 시간대 설정 (종혁 2026-08 요청).
+      <!-- 국가 / 시간대 설정 (종혁 2026-09 요청, 퀘벡 학생).
            country 는 시간대 목록을 좁히는 보조 정보일 뿐, 시각 계산은 timezone 만 쓴다. -->
       <h2 id="settingsTitle"></h2>
       <div class="card">
-        <!-- .row 는 styles.css 에서 .modal 안에만 정의돼 있어 여기선 안 먹는다. 인라인으로 둔다. -->
+        <!-- .row 는 styles 에서 .modal 안에만 정의돼 있어 여기선 안 먹는다. 인라인으로 둔다. -->
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <label style="display:block">
             <span class="muted" id="lblCountry"></span><br>
@@ -436,6 +543,7 @@
     var category = 'private';
     var summary = null;          // credits summary
     var pendingSlot = null;
+    var cmMode = 'book';         // 확인 모달을 예약과 예약변경이 함께 쓴다
     var myData = null;           // getMyLessons payload (§8.2)
 
     // ---------- boot ----------
@@ -504,7 +612,13 @@
       set('trialDone', 'trial_done'); set('trialDoneNote', 'trial_done_note');
       set('tzLabel', 'tz_label');
       set('bkPickDate', 'trial_pick_date'); set('bkSub', 'book_sub');
-      set('bkDateHint', 'date_format_hint');
+      set('bkDateHint', 'date_format_hint'); set('bkCountryLbl', 'label_country');
+      // 예약 변경 화면
+      set('rsBack', 'back_my_lessons'); set('rsTitle', 'reschedule_title');
+      set('rsSub', 'pick_new_slot'); set('rsCurrentLbl', 'resched_current');
+      set('rsNote', 'resched_note'); set('rsDateHint', 'date_format_hint');
+      set('rsPickDate', 'trial_pick_date');
+      set('rsCountryLbl', 'label_country'); set('rsTzLbl', 'tz_label');
       renderGreeting();
       set('toMyPage', 'my_lessons');
       set('doneTitle', 'booked_title'); set('doneMeetLabel', 'meet_link_label');
@@ -556,15 +670,48 @@
       };
       document.getElementById('bkPrev').onclick = function () { loadBookMonth(shiftMonth(bkMonth, -1)); };
       document.getElementById('bkNext').onclick = function () { loadBookMonth(shiftMonth(bkMonth, 1)); };
-      document.getElementById('tzSelect').onchange = function (e) { App.tz = e.target.value; loadSlots(); };
+      document.getElementById('bkCountry').onchange = function (e) {
+        onCountryPicked('tzSelect', e.target.value); loadSlots();
+      };
+      document.getElementById('tzSelect').onchange = function (e) {
+        onTzPicked(e.target.value, document.getElementById('bkCountry').value); loadSlots();
+      };
+      document.getElementById('rsPrev').onclick = function () { loadRsMonth(shiftMonth(rsMonth, -1)); };
+      document.getElementById('rsNext').onclick = function () { loadRsMonth(shiftMonth(rsMonth, 1)); };
+      document.getElementById('rsBack').onclick = function () { openMyLessons(); };
+      document.getElementById('rsCountry').onchange = function (e) {
+        onCountryPicked('rsTz', e.target.value); refreshRsView();
+      };
+      document.getElementById('rsTz').onchange = function (e) {
+        onTzPicked(e.target.value, document.getElementById('rsCountry').value); refreshRsView();
+      };
+      // 관리자 일정 변경 화면
+      document.getElementById('arPrev').onclick = function () { loadArMonth(shiftMonth(arMonth, -1)); };
+      document.getElementById('arNext').onclick = function () { loadArMonth(shiftMonth(arMonth, 1)); };
+      document.getElementById('arBack').onclick = function () { showView('adminView'); };
+      document.getElementById('arManualBtn').onclick = arPickManual;
+      // 강사 화면의 시간대 변경은 표시용이다 — 강사 본인 설정을 서버에 저장하지 않는다.
+      document.getElementById('arCountry').onchange = function (e) {
+        buildTzSelectInto('arTz', e.target.value, null);
+        App.tz = document.getElementById('arTz').value; refreshArView();
+      };
+      document.getElementById('arTz').onchange = function (e) { App.tz = e.target.value; refreshArView(); };
       document.getElementById('cmCancel').onclick = closeModal;
-      document.getElementById('cmConfirm').onclick = confirmBooking;
+      // 확인 모달은 예약·예약변경·관리자 변경이 함께 쓴다. 어느 쪽인지는 cmMode 가 정한다.
+      document.getElementById('cmConfirm').onclick = function () {
+        if (cmMode === 'resched') doReschedule();
+        else if (cmMode === 'adresched') doAdminReschedule();
+        else confirmBooking();
+      };
       document.getElementById('doneBackBtn').onclick = function () { showView('bookView'); loadSlots(); };
       // 페이지 이동 없이 뷰 전환 (샌드박스 iframe에서 location 이동이 깨지는 문제 회피)
       document.getElementById('toMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
       document.getElementById('doneMyPage').onclick = function (e) { e.preventDefault(); openMyLessons(); };
-      document.getElementById('toBooking').onclick = function () { showView('bookView'); loadSlots(); };
-      document.getElementById('setCountry').onchange = function (e) { buildSetTzSelect(e.target.value, null); };
+      document.getElementById('toBooking').onclick = function () {
+        buildTzPick('bkCountry', 'tzSelect');   // 설정에서 바꾼 시간대를 여기에도 반영
+        showView('bookView'); loadSlots();
+      };
+      document.getElementById('setCountry').onchange = function (e) { buildTzSelectInto('setTz', e.target.value, null); };
       document.getElementById('setSaveBtn').onclick = saveSettings;
       document.getElementById('toContact').onclick = function () { openContact(); };
       document.getElementById('contactBack').onclick = function () { showView('bookView'); };
@@ -601,6 +748,7 @@
         App.logout();
         myData = null;
         document.getElementById('creditChip').classList.add('hidden');
+        hideAdminBtn();
         showView('loginView');
       };
     }
@@ -670,15 +818,22 @@
 
     // ---------- app ----------
     function enterApp() {
-      buildTzSelect();
+      buildTzPick('bkCountry', 'tzSelect');
       showView('bookView');
       renderCreditChip();
       loadSlots();
       // 관리자 버튼은 서버가 세션 이메일로 판정했을 때만 노출한다.
-      // (숨김은 편의일 뿐, 실제 권한은 서버 requireTeacher_ 에서 강제됨)
+      // 이 화면은 리로드 없는 SPA 라, 강사로 한 번 노출된 버튼이 로그아웃 뒤에도
+      // 남아 다른 계정 화면에 보이는 사고가 있었다(2026-09). 그래서 매번 먼저 숨긴다.
+      hideAdminBtn();
       App.call('amITeacher', App.getSession()).then(function (r) {
         if (r && r.isTeacher) document.getElementById('toAdmin').classList.remove('hidden');
       }).catch(function () {});
+    }
+
+    /** 관리자 버튼 숨김. 로그인 전환·로그아웃·권한 미확인 시 항상 이 상태가 기본. */
+    function hideAdminBtn() {
+      document.getElementById('toAdmin').classList.add('hidden');
     }
 
     function renderCreditChip() {
@@ -702,16 +857,55 @@
     }
 
     // ---------- timezone ----------
-    function buildTzSelect() {
-      var sel = document.getElementById('tzSelect');
-      var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
-                   'America/Toronto', 'America/Vancouver', 'America/Los_Angeles', 'Asia/Tokyo',
-                   'Australia/Sydney', 'UTC'];
-      var detected = App.tz;
-      if (zones.indexOf(detected) < 0) zones.unshift(detected);
-      sel.innerHTML = zones.map(function (z) {
-        return '<option value="' + esc(z) + '"' + (z === detected ? ' selected' : '') + '>' + esc(tzOptionLabel(z)) + '</option>';
-      }).join('');
+    // IANA 이름이 학생이 사는 도시를 감추는 경우만 적는다 (퀘벡 학생, 종혁 2026-09).
+    // 퀘벡·몬트리올은 America/Toronto 다. 여기 없는 시간대는 ID 를 그대로 보여준다.
+    // 저장·전송되는 값은 언제나 IANA ID 이고, 라벨은 화면 표시용일 뿐이다.
+    var TZ_CITY = {
+      'America/Toronto': 'Montréal · Québec · Ottawa · Toronto',
+      'America/Edmonton': 'Calgary · Edmonton',
+      'Europe/Zurich': 'Genève · Zurich'
+    };
+    function tzOptionLabel(tz) {
+      return TZ_CITY[tz] ? (tz + ' — ' + TZ_CITY[tz]) : tz;
+    }
+
+    /** 화면에 쓸 시간대 — 시트에 저장된 값이 우선, 없으면 브라우저 감지값. */
+    function effectiveTz() { return (myData && myData.student_tz) || App.tz; }
+    function effectiveCountry(tz) { return (myData && myData.country) || countryFromTz(tz); }
+
+    /**
+     * 국가 + 시간대 드롭다운 한 쌍을 현재 값으로 채운다.
+     * 예약 화면·예약변경 화면·설정 카드가 모두 이 쌍을 쓴다 (종혁 2026-09).
+     */
+    function buildTzPick(countryId, tzId) {
+      var tz = effectiveTz();
+      App.tz = tz;                 // 저장된 시간대가 브라우저 감지값을 이긴다
+      var country = effectiveCountry(tz);
+      buildCountrySelect(countryId, country);
+      buildTzSelectInto(tzId, country, tz);
+    }
+
+    /** 국가를 바꿨을 때 — 그 나라 시간대 첫 항목으로 맞추고 저장한다. */
+    function onCountryPicked(tzId, country) {
+      buildTzSelectInto(tzId, country, null);
+      onTzPicked(document.getElementById(tzId).value, country);
+    }
+
+    /** 시간대를 바꿨을 때 — 화면 표기를 바꾸고 서버에도 남긴다. */
+    function onTzPicked(tz, country) {
+      App.tz = tz;
+      persistPrefs(tz, country === '__other' ? '' : country);
+    }
+
+    /**
+     * 고른 국가·시간대를 시트에 저장한다.
+     * 화면에 보이는 시각과 안내 메일의 시각이 어긋나지 않게 하려는 것이므로,
+     * 실패해도 화면을 막지 않는다 (설정 카드의 저장 버튼이 명시적 경로다).
+     */
+    function persistPrefs(tz, country) {
+      if (myData) { myData.student_tz = tz; myData.country = country; }
+      if (!App.getSession()) return;
+      App.call('setMyPrefs', App.getSession(), App.lang, tz, country).catch(function () {});
     }
 
     // ---------- slots ----------
@@ -760,6 +954,8 @@
     // ---------- confirm modal ----------
     function openModal(utc, whenLabel) {
       pendingSlot = utc;
+      cmMode = 'book';
+      document.getElementById('cmConfirm').textContent = App.t('confirm_btn');
       document.getElementById('cmTitle').textContent = App.t('confirm_title');
       document.getElementById('cmWhen').textContent = whenLabel;
       document.getElementById('cmNote').textContent =
@@ -843,6 +1039,7 @@
         // session likely expired → back to login
         App.logout(); myData = null;
         document.getElementById('creditChip').classList.add('hidden');
+        hideAdminBtn();
         showView('loginView');
         App.toast(App.t('auth_error'), true);
       });
@@ -850,7 +1047,7 @@
 
     function renderMyAll() { renderSettings(); renderPacks(); renderUpcoming(); renderPast(); }
 
-    // ---------- 국가 / 시간대 설정 (§8.2 확장, 종혁 2026-08) ----------
+    // ---------- 국가 / 시간대 설정 (종혁 2026-09) ----------
     // country 는 **시간 계산에 쓰지 않는다.** 시각의 진실 소스는 timezone 하나뿐이고,
     // 국가는 아래 목록에서 시간대 선택지를 좁혀주는 역할만 한다.
     // 자주 쓰는 20개국 + '기타'. 새 나라 학생이 오면 여기 한 줄만 추가하면 된다.
@@ -879,23 +1076,12 @@
       AU: ['Australia/Perth', 'Australia/Darwin', 'Australia/Brisbane',
            'Australia/Adelaide', 'Australia/Melbourne', 'Australia/Sydney']
     };
-    // '기타'를 고른 학생에게 보여줄 시간대. 여기 없는 값이어도 감지된 값은 그대로 유지된다.
+    // '기타'를 고른 학생에게 보여줄 시간대. 여기 없는 값이어도 저장된 값은 그대로 유지된다.
     var OTHER_TZ = ['UTC', 'Europe/Paris', 'Europe/London', 'Europe/Berlin', 'Europe/Moscow',
                     'Africa/Casablanca', 'Africa/Lagos', 'Africa/Johannesburg',
                     'America/Sao_Paulo', 'America/Mexico_City', 'Asia/Dubai',
                     'Asia/Kolkata', 'Asia/Jakarta', 'Asia/Shanghai', 'Asia/Taipei',
                     'Pacific/Auckland'];
-    // IANA 이름이 학생이 실제 사는 도시를 감추는 경우에만 적는다 (퀘벡 학생, 종혁 2026-09).
-    // 여기 없는 시간대는 ID 를 그대로 보여준다. 저장되는 값은 언제나 IANA ID 다.
-    var TZ_CITY = {
-      'America/Toronto': 'Montréal · Québec · Ottawa · Toronto',
-      'America/Edmonton': 'Calgary · Edmonton',
-      'Europe/Zurich': 'Genève · Zurich'
-    };
-    function tzOptionLabel(tz) {
-      return TZ_CITY[tz] ? (tz + ' — ' + TZ_CITY[tz]) : tz;
-    }
-
     // Intl.DisplayNames 가 없는 브라우저용 최소 대비책.
     var COUNTRY_FALLBACK = {
       FR: 'France', GB: 'United Kingdom', BE: 'Belgium', CH: 'Switzerland',
@@ -924,11 +1110,11 @@
       // 저장된 값이 우선이다. 메일이 실제로 쓰는 건 브라우저 감지값이 아니라 이쪽이다.
       var tz = (myData && myData.student_tz) || App.tz;
       var country = (myData && myData.country) || countryFromTz(tz);
-      buildSetCountrySelect(country);
-      buildSetTzSelect(country, tz);
+      buildCountrySelect('setCountry', country);
+      buildTzSelectInto('setTz', country, tz);
     }
 
-    function buildSetCountrySelect(selected) {
+    function buildCountrySelect(elId, selected) {
       var codes = Object.keys(COUNTRY_TZ).sort(function (a, b) {
         return countryName(a).localeCompare(countryName(b), App.lang);
       });
@@ -938,11 +1124,11 @@
       });
       html.push('<option value="__other"' + (selected ? '' : ' selected') + '>' +
                 esc(App.t('country_other')) + '</option>');
-      document.getElementById('setCountry').innerHTML = html.join('');
+      document.getElementById(elId).innerHTML = html.join('');
     }
 
-    function buildSetTzSelect(country, selected) {
-      var sel = document.getElementById('setTz');
+    function buildTzSelectInto(elId, country, selected) {
+      var sel = document.getElementById(elId);
       var zones = (COUNTRY_TZ[country] || OTHER_TZ).slice();
       // 현재 값이 목록에 없으면 맨 앞에 끼워 넣는다 — 저장된 시간대를 화면이 지워버리면 안 된다.
       if (selected && zones.indexOf(selected) < 0) zones.unshift(selected);
@@ -1013,35 +1199,48 @@
       }).join('');
     }
 
-    // ---------- reschedule (§6) — 예약 화면과 동일한 월달력 ----------
+    // ---------- reschedule (§6) — 예약 화면과 같은 전용 화면 ----------
+    // 예전에는 좁은 모달 안에 달력을 넣어 스크롤해야 했고, 시간 버튼을 누르는 순간
+    // 확인 없이 바로 변경됐다. 지금은 예약과 같은 2단 화면 + 확인 모달을 쓴다
+    // (종혁 2026-09). 서버 호출(rescheduleBooking)과 24시간 규칙은 그대로다.
     var RS_IDS = { grid: 'rsGrid', month: 'rsMonth', times: 'rsTimes', dayLabel: 'rsDayLabel' };
-    var rsMonth = null, rsData = null, rsSelDate = null, rsBooking = null;
+    var rsMonth = null, rsData = null, rsSelDate = null, rsBooking = null, rsPendingSlot = null;
 
     function openReschedule(b) {
       rsBooking = b;
-      rsMonth = currentMonthIso(); rsData = null; rsSelDate = null;
-      myModalTitle(App.t('reschedule'));
-      document.getElementById('mBody').textContent = App.t('pick_new_slot');
-
-      // 모달 안에 달력 UI를 심는다 (예약 화면과 같은 구성)
-      var slotBox = document.getElementById('mSlots');
-      slotBox.classList.remove('hidden');
-      slotBox.innerHTML =
-        '<div class="cal-nav">' +
-          '<button class="btn ghost sm" id="rsPrev">‹</button>' +
-          '<span id="rsMonth"></span>' +
-          '<button class="btn ghost sm" id="rsNext">›</button>' +
-        '</div>' +
-        '<div id="rsGrid"></div>' +
-        '<h4 id="rsDayLabel" style="margin:12px 0 6px"></h4>' +
-        '<div id="rsTimes"></div>';
-
-      document.getElementById('rsPrev').onclick = function () { loadRsMonth(shiftMonth(rsMonth, -1)); };
-      document.getElementById('rsNext').onclick = function () { loadRsMonth(shiftMonth(rsMonth, 1)); };
-
-      setMyButtons([{ label: App.t('cancel_btn'), cls: 'btn secondary', fn: closeMyModal }]);
-      openMyModal();
+      rsMonth = currentMonthIso(); rsData = null; rsSelDate = null; rsPendingSlot = null;
+      buildTzPick('rsCountry', 'rsTz');
+      document.getElementById('rsTimes').innerHTML = '';
+      document.getElementById('rsDayLabel').textContent = '';
+      renderRsCurrent();
+      showView('rsView');
       loadRsMonth(rsMonth);
+    }
+
+    /** 옮기기 전 수업 시각. 시간대를 바꾸면 이 라벨도 같이 다시 그린다. */
+    function renderRsCurrent() {
+      document.getElementById('rsCurrent').textContent =
+        rsBooking ? fmtInTz(rsBooking.start_utc, App.tz) : '';
+    }
+
+    /** 시간대를 바꿨을 때 — 현재 수업 라벨과 슬롯을 새 기준으로 다시 그린다. */
+    function refreshRsView() {
+      renderRsCurrent();
+      loadRsMonth(rsMonth);
+    }
+
+    /** dd/MM/yyyy HH:mm — 서버가 만드는 라벨과 같은 유럽식 표기를 화면에서도 쓴다. */
+    function fmtInTz(iso, tz) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      try {
+        var p = {};
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz, weekday: 'short', day: '2-digit', month: '2-digit',
+          year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
+        return p.weekday + ' ' + p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute;
+      } catch (e) { return ''; }
     }
 
     function loadRsMonth(monthIso) {
@@ -1057,6 +1256,7 @@
       call.then(function (d) {
         rsData = d;
         paintCalendar(RS_IDS, rsMonth, rsData, rsSelDate, selectRsDate);
+        if (rsSelDate) paintRsTimes(rsSelDate);   // 시간대만 바꾼 경우 고른 날짜를 유지
       }).catch(function () {
         document.getElementById('rsGrid').innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>';
       });
@@ -1065,22 +1265,47 @@
     function selectRsDate(ymd) {
       rsSelDate = ymd;
       paintCalendar(RS_IDS, rsMonth, rsData, rsSelDate, selectRsDate);
+      paintRsTimes(ymd);
+    }
+
+    function paintRsTimes(ymd) {
       paintTimes(RS_IDS, rsData, ymd, 'no_slots', function (s) {
-        doReschedule(rsBooking.booking_id, s.start_utc);
+        openReschedConfirm(s, ymd);
       });
     }
 
-    function doReschedule(id, newUtc) {
-      App.call('rescheduleBooking', App.getSession(), id, newUtc).then(function (r) {
-        closeMyModal();
-        if (r && r.ok) {
-          App.toast(App.t(r.mail_sent === false ? 'mail_failed_note' : 'rescheduled_ok'),
-                    r.mail_sent === false);
-          openMyLessons();
-          return;
-        }
-        App.toast(codeToMsg(r && r.code, r), true);
-      }).catch(function (err) { closeMyModal(); App.toast(errToMsg(err), true); });
+    /** 확인 모달 — 옮기기 전 시각과 새 시각을 함께 보여준다. */
+    function openReschedConfirm(slot, ymd) {
+      cmMode = 'resched';
+      rsPendingSlot = slot.start_utc;
+      document.getElementById('cmTitle').textContent = App.t('reschedule_title');
+      document.getElementById('cmWhen').textContent =
+        ymd.split('-').reverse().join('/') + ' ' + slot.time_label;
+      document.getElementById('cmNote').textContent =
+        App.t('resched_from', { when: fmtInTz(rsBooking.start_utc, App.tz) });
+      document.getElementById('cmConfirm').textContent = App.t('resched_confirm_btn');
+      document.getElementById('confirmModal').classList.add('open');
+    }
+
+    function doReschedule() {
+      var btn = document.getElementById('cmConfirm');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      App.call('rescheduleBooking', App.getSession(), rsBooking.booking_id, rsPendingSlot)
+        .then(function (r) {
+          btn.disabled = false; btn.textContent = App.t('resched_confirm_btn');
+          closeModal();
+          if (r && r.ok) {
+            App.toast(App.t(r.mail_sent === false ? 'mail_failed_note' : 'rescheduled_ok'),
+                      r.mail_sent === false);
+            openMyLessons();
+            return;
+          }
+          App.toast(codeToMsg(r && r.code, r), true);
+          loadRsMonth(rsMonth);   // 그 사이 다른 예약이 슬롯을 가져갔을 수 있다
+        }).catch(function (err) {
+          btn.disabled = false; btn.textContent = App.t('resched_confirm_btn');
+          closeModal(); App.toast(errToMsg(err), true);
+        });
     }
 
     // ---------- cancel (§6) ----------
@@ -1187,7 +1412,8 @@
       var sel = document.getElementById('trialTz');
       if (sel.options.length) return;
       var zones = ['Europe/Paris', 'Europe/London', 'Asia/Seoul', 'America/New_York',
-                   'America/Toronto', 'America/Vancouver', 'America/Los_Angeles', 'Asia/Tokyo', 'UTC'];
+                   'America/Toronto', 'America/Vancouver', 'America/Los_Angeles',
+                   'Asia/Tokyo', 'UTC'];
       if (zones.indexOf(App.tz) < 0) zones.unshift(App.tz);
       sel.innerHTML = zones.map(function (z) {
         return '<option value="' + esc(z) + '"' + (z === App.tz ? ' selected' : '') + '>' + esc(tzOptionLabel(z)) + '</option>';
@@ -1231,7 +1457,10 @@
      *  selDate : 선택된 'yyyy-MM-dd' (없으면 null)
      *  onDate  : 날짜 클릭 콜백
      */
-    function paintCalendar(ids, monthIso, data, selDate, onDate) {
+    // opts.allDays — 슬롯이 없는 날도 누를 수 있게 한다 (강사 일정 변경용). 지난 날은 제외.
+    function paintCalendar(ids, monthIso, data, selDate, onDate, opts) {
+      var allDays = !!(opts && opts.allDays);
+      var todayYmd = ymdInTz(Date.now(), App.tz);
       document.getElementById(ids.month).textContent = monthLabel(monthIso);
       var y = Number(monthIso.slice(0, 4)), m = Number(monthIso.slice(5, 7));
       var dn = DOW_NAMES[App.lang] || DOW_NAMES.en;
@@ -1246,14 +1475,15 @@
         if ((startCol + day - 1) % 7 === 0 && day !== 1) html += '</tr><tr>';
         var ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + day).slice(-2);
         var has = data && data.days && data.days[ymd] && data.days[ymd].length;
-        var cls = 'cal-day' + (has ? ' free' : '') + (ymd === selDate ? ' sel' : '');
-        html += '<td><button class="' + cls + '"' + (has ? ' data-d="' + ymd + '"' : ' disabled') +
+        var open = !has && allDays && ymd >= todayYmd;
+        var cls = 'cal-day' + (has ? ' free' : '') + (open ? ' open' : '') + (ymd === selDate ? ' sel' : '');
+        html += '<td><button class="' + cls + '"' + ((has || open) ? ' data-d="' + ymd + '"' : ' disabled') +
                 '>' + day + '</button></td>';
       }
       html += '</tr></table>';
       var grid = document.getElementById(ids.grid);
       grid.innerHTML = html;
-      Array.prototype.forEach.call(grid.querySelectorAll('.cal-day.free'), function (b) {
+      Array.prototype.forEach.call(grid.querySelectorAll('.cal-day.free, .cal-day.open'), function (b) {
         b.onclick = function () { onDate(b.dataset.d); };
       });
     }
@@ -1596,9 +1826,17 @@
       });
     }
 
+    // 버튼이 어떤 이유로든 남아 있어도 화면 자체가 열리지 않게, 진입할 때 서버에 다시 묻는다.
+    // 데이터는 이미 서버 requireTeacher_ 가 막지만, 관리자 UI 자체를 보이지 않게 한다.
     function openAdmin() {
-      showView('adminView');
-      adShowPanel('adTabBookings');
+      var btn = document.getElementById('toAdmin');
+      btn.disabled = true;
+      App.call('amITeacher', App.getSession()).then(function (r) {
+        btn.disabled = false;
+        if (!(r && r.isTeacher)) { hideAdminBtn(); return; }
+        showView('adminView');
+        adShowPanel('adTabBookings');
+      }).catch(function () { btn.disabled = false; });
     }
 
     // =======================================================================
@@ -1744,31 +1982,160 @@
       openMyModal();
     }
 
+    // ---- 관리자 일정 변경 — 학생 예약 화면과 같은 전용 화면 (종혁 2026-09) ----
+    // 예전 모달은 '이번 주 빈 시간'만 보여줘 고를 게 몇 개 없었다.
+    var AR_IDS = { grid: 'arGrid', month: 'arMonth', times: 'arTimes', dayLabel: 'arDayLabel' };
+    var arMonth = null, arData = null, arSelDate = null, arBooking = null, arPendingUtc = null;
+    var AR_CAT_LABEL = { trial: '무료 체험', b2b: 'B2B 상담', private: '개인수업' };
+
     function adminOpenReschedule(b) {
-      myModalTitle('일정 변경 (관리자)');
-      document.getElementById('mBody').textContent =
-        b.student_name + ' 님의 수업을 옮길 시간을 선택하세요.';
-      var slotBox = document.getElementById('mSlots');
-      slotBox.classList.remove('hidden'); slotBox.innerHTML = '<p class="muted">…</p>';
-      setMyButtons([{ label: '닫기', cls: 'btn secondary', fn: closeMyModal }]);
-      openMyModal();
-      App.call('getFreeSlots', App.getSession(), b.category, weekStartIso(0), App.tz).then(function (slots) {
-        if (!slots.length) { slotBox.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; return; }
-        slotBox.innerHTML = '';
-        slots.slice(0, 60).forEach(function (s) {
-          var btn = document.createElement('button');
-          btn.className = 'btn ghost sm'; btn.style.margin = '3px';
-          btn.textContent = s.day_label + ' ' + s.date_display + ' ' + s.time_label;
-          btn.onclick = function () {
-            App.call('adminRescheduleBooking', App.getSession(), b.booking_id, s.start_utc).then(function (r) {
-              closeMyModal();
-              App.toast(r && r.ok ? '옮겼습니다.' : '실패했습니다.', !(r && r.ok));
-              loadAdminBookings();
-            }).catch(function () { closeMyModal(); App.toast('실패했습니다.', true); });
-          };
-          slotBox.appendChild(btn);
+      arBooking = b;
+      arMonth = currentMonthIso(); arData = null; arSelDate = null; arPendingUtc = null;
+      document.getElementById('arWho').textContent =
+        b.student_name + ' (' + b.student_email + ') · ' + (AR_CAT_LABEL[b.category] || b.category);
+      var country = countryFromTz(App.tz);
+      buildCountrySelect('arCountry', country);
+      buildTzSelectInto('arTz', country, App.tz);
+      document.getElementById('arTimes').innerHTML = '';
+      document.getElementById('arDayLabel').textContent = '';
+      document.getElementById('arManual').classList.add('hidden');
+      renderArCurrent();
+      showView('arView');
+      loadArMonth(arMonth);
+    }
+
+    function renderArCurrent() {
+      document.getElementById('arCurrent').textContent =
+        arBooking ? fmtInTz(arBooking.start_utc, App.tz) : '';
+    }
+
+    function refreshArView() {
+      renderArCurrent();
+      loadArMonth(arMonth);
+    }
+
+    function loadArMonth(monthIso) {
+      arMonth = monthIso;
+      document.getElementById('arGrid').innerHTML = '<p class="muted">…</p>';
+      // 추천 시간 = 학생이 볼 수 있는 빈 슬롯. 체험은 체험 근무시간, 나머지는 개인수업 기준.
+      var call = (arBooking.category === 'trial')
+        ? App.call('getTrialMonth', arMonth, App.tz)
+        : App.call('getMonthSlots', App.getSession(), arMonth, App.tz);
+      call.then(function (d) {
+        arData = d || { days: {} };
+        paintCalendar(AR_IDS, arMonth, arData, arSelDate, selectArDate, { allDays: true });
+        if (arSelDate) paintArDay(arSelDate);
+      }).catch(function () {
+        // 추천을 못 불러와도 직접 입력은 되게 한다
+        arData = { days: {} };
+        paintCalendar(AR_IDS, arMonth, arData, arSelDate, selectArDate, { allDays: true });
+      });
+    }
+
+    function selectArDate(ymd) {
+      arSelDate = ymd;
+      paintCalendar(AR_IDS, arMonth, arData, arSelDate, selectArDate, { allDays: true });
+      paintArDay(ymd);
+    }
+
+    function paintArDay(ymd) {
+      var list = (arData && arData.days && arData.days[ymd]) || [];
+      if (list.length) {
+        paintTimes(AR_IDS, arData, ymd, 'no_slots', function (s) {
+          openAdminReschedConfirm(s.start_utc, ymd.split('-').reverse().join('/') + ' ' + s.time_label);
         });
-      }).catch(function () { slotBox.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; });
+      } else {
+        document.getElementById('arDayLabel').textContent = ymd.split('-').reverse().join('/');
+        document.getElementById('arTimes').innerHTML =
+          '<p class="muted" style="font-size:.85rem">추천 시간이 없습니다. 아래에 직접 입력하세요.</p>';
+      }
+      document.getElementById('arErr').textContent = '';
+      document.getElementById('arManual').classList.remove('hidden');
+    }
+
+    function arPickManual() {
+      var hm = document.getElementById('arTime').value;
+      var err = document.getElementById('arErr');
+      if (!arSelDate) { err.textContent = '날짜를 먼저 고르세요.'; return; }
+      if (!/^\d{2}:\d{2}$/.test(hm)) { err.textContent = '시간을 입력하세요.'; return; }
+      var utc = wallToUtcIso(arSelDate, hm, App.tz);
+      if (!utc) { err.textContent = '시간이 올바르지 않습니다.'; return; }
+      if (new Date(utc).getTime() <= Date.now()) { err.textContent = '지난 시각으로는 옮길 수 없습니다.'; return; }
+      err.textContent = '';
+      openAdminReschedConfirm(utc, arSelDate.split('-').reverse().join('/') + ' ' + hm);
+    }
+
+    function openAdminReschedConfirm(utc, whenLabel) {
+      cmMode = 'adresched';
+      arPendingUtc = utc;
+      document.getElementById('cmTitle').textContent = '일정 변경 (관리자)';
+      document.getElementById('cmWhen').textContent = whenLabel + ' (' + App.tz + ')';
+      document.getElementById('cmNote').textContent =
+        arBooking.student_name + ' 님의 ' + fmtInTz(arBooking.start_utc, App.tz) +
+        ' 수업을 이 시간으로 옮깁니다. 학생에게 변경 메일이 발송됩니다.';
+      document.getElementById('cmConfirm').textContent = '이 시간으로 옮기기';
+      document.getElementById('confirmModal').classList.add('open');
+    }
+
+    function doAdminReschedule() {
+      var btn = document.getElementById('cmConfirm');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      function done() { btn.disabled = false; btn.textContent = '이 시간으로 옮기기'; closeModal(); }
+      App.call('adminRescheduleBooking', App.getSession(), arBooking.booking_id, arPendingUtc)
+        .then(function (r) {
+          done();
+          if (r && r.ok) {
+            App.toast(r.mail_sent === false
+              ? '옮겼습니다. 다만 학생 변경 메일은 나가지 않았습니다.' : '옮겼습니다.',
+              r.mail_sent === false);
+            showView('adminView');
+            loadAdminBookings();
+            return;
+          }
+          App.toast(r && r.code === 'NOT_RESCHEDULABLE'
+            ? '이미 취소되었거나 옮길 수 없는 수업입니다.' : '실패했습니다.', true);
+        })
+        .catch(function (e) {
+          done();
+          var m = String(e);
+          App.toast(m.indexOf('SLOT_TAKEN') >= 0
+            ? '그 시간에 이미 다른 일정이 있습니다.' : '실패했습니다.', true);
+          loadArMonth(arMonth);
+        });
+    }
+
+    /** 시각(ms)을 tz 기준 yyyy-MM-dd 로. 달력에서 '오늘 이전'을 막는 데 쓴다. */
+    function ymdInTz(ms, tz) {
+      var p = tzParts(ms, tz);
+      return p ? (p.year + '-' + p.month + '-' + p.day) : '';
+    }
+
+    function tzParts(ms, tz) {
+      try {
+        var p = {};
+        new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }).formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+        return p;
+      } catch (e) { return null; }
+    }
+
+    /**
+     * tz 의 벽시계 시각(yyyy-MM-dd, HH:mm) → UTC ISO.
+     * 서버 parseWallClockInTz_ 와 같은 방식(오프셋 추정 → 한 번 보정)이라 서머타임 경계도 맞는다.
+     */
+    function wallToUtcIso(ymd, hm, tz) {
+      var guess = Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10),
+                           +hm.slice(0, 2), +hm.slice(3, 5));
+      function offset(ms) {
+        var p = tzParts(ms, tz);
+        if (!p) return NaN;
+        return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - ms;
+      }
+      var t = guess - offset(guess);
+      t = guess - offset(t);
+      return isFinite(t) ? new Date(t).toISOString() : '';
     }
 
     // =======================================================================
@@ -2006,7 +2373,7 @@
 
     // ---------- view switch ----------
     var VIEWS = ['loginView', 'codeView', 'trialView', 'bookView', 'doneView',
-                 'myView', 'contactView', 'adminView'];
+                 'rsView', 'arView', 'myView', 'contactView', 'adminView'];
     function showView(id) {
       VIEWS.forEach(function (v) {
         document.getElementById(v).classList.toggle('hidden', v !== id);
