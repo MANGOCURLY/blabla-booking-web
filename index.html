@@ -1649,7 +1649,15 @@
           '무료체험: ' + (s.trial_used ? '사용함' : '미사용') +
           (s.phone ? ' &nbsp;·&nbsp; ☎ ' + esc(s.phone) : '') +
           (s.created_label ? ' &nbsp;·&nbsp; 등록 ' + esc(s.created_label) : '') +
-          '</div></div>';
+          '</div>' +
+          // 학생 고정 Meet 링크 (종혁 2026-09) — 모든 예약에 이 링크가 쓰인다
+          '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          '<span class="muted">고정 Meet</span>' +
+          '<input type="url" id="svMeetInput" class="tf" style="flex:1;min-width:220px" ' +
+          'placeholder="https://meet.google.com/abc-defg-hij" value="' + esc(s.meet_link || '') + '">' +
+          '<button class="btn sm" id="svMeetSave">저장</button>' +
+          '</div><div class="muted" id="svMeetMsg" style="font-size:.8rem;margin-top:4px">' +
+          (s.meet_link ? '' : '아직 없음 — 첫 예약 때 자동으로 정해집니다.') + '</div></div>';
 
         // 총 크레딧
         html += '<p style="margin:14px 0"><span class="chip">남은 수업: ' +
@@ -1692,7 +1700,37 @@
         }).join('') : '<p class="muted">—</p>';
 
         box.innerHTML = html;
+        document.getElementById('svMeetSave').onclick = function () { saveStudentMeet(s.email); };
       }).catch(function () { box.innerHTML = '<p class="muted">불러오지 못했습니다.</p>'; });
+    }
+
+    // 고정 Meet 링크 수동 변경. 서버가 다가오는 예약의 링크도 함께 바꾼다.
+    function saveStudentMeet(email) {
+      var input = document.getElementById('svMeetInput');
+      var msg = document.getElementById('svMeetMsg');
+      var btn = document.getElementById('svMeetSave');
+      if (!confirm('이 학생의 고정 Meet 링크를 바꾸고, 다가오는 수업에도 적용할까요?')) return;
+      btn.disabled = true;
+      App.call('adminSetMeetLink', App.getSession(), email, input.value.trim()).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) {
+          input.value = r.meet_link;
+          msg.style.color = 'var(--plum)';
+          msg.textContent = '✅ 저장됨' + (r.updated ? ' · 다가오는 수업 ' + r.updated + '건에 적용' : '');
+          renderStudentView(email);
+        } else {
+          msg.style.color = 'var(--warn)';
+          msg.textContent = (r && r.code === 'INVALID_MEET_LINK')
+            ? 'https://meet.google.com/xxx-xxxx-xxx 형식이어야 합니다.'
+            : (r && r.code === 'NO_COLUMN')
+            ? '시트에 meet_link 칸이 없습니다 — 편집기에서 ensureSheets 를 먼저 실행하세요.'
+            : '저장하지 못했습니다.';
+        }
+      }).catch(function () {
+        btn.disabled = false;
+        msg.style.color = 'var(--warn)';
+        msg.textContent = '저장하지 못했습니다.';
+      });
     }
 
     // ---- B2B 온라인 상담 (종혁 2026-09) ----
