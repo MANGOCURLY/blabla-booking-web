@@ -1990,9 +1990,10 @@
             closeMyModal();
             if (r && r.ok) {
               // 팩이 만료·환불된 상태면 크레딧을 되돌릴 수 없다 (4단계 M3)
-              App.toast(r.refund_blocked
+              App.toast((r.refund_blocked
                 ? '취소했습니다. 다만 패키지가 이미 만료/환불되어 크레딧은 복구하지 못했습니다.'
-                : '취소했습니다.', !!r.refund_blocked);
+                : '취소했습니다.') + adminMailNote(r, '취소'),
+                !!(r.refund_blocked || r.mail_sent === false));
             } else {
               App.toast('실패했습니다.', true);
             }
@@ -2131,9 +2132,7 @@
         .then(function (r) {
           done();
           if (r && r.ok) {
-            App.toast(r.mail_sent === false
-              ? '옮겼습니다. 다만 학생 변경 메일은 나가지 않았습니다.' : '옮겼습니다.',
-              r.mail_sent === false);
+            App.toast('옮겼습니다.' + adminMailNote(r, '변경'), r.mail_sent === false);
             showView('adminView');
             loadAdminBookings();
             return;
@@ -2390,6 +2389,13 @@
       }).catch(function () { el.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; });
     }
 
+    /** 관리자 알림 뒤에 붙는 메일 발송 결과. kind = '변경' | '확정' | '취소' */
+    function adminMailNote(r, kind) {
+      return r.mail_sent === false
+        ? ' ⚠️ 학생 ' + kind + ' 메일은 나가지 않았습니다.'
+        : ' 학생에게 ' + kind + ' 메일을 보냈습니다.';
+    }
+
     function proxyPickManual() {
       var ymd = document.getElementById('nbDate').value;
       var hm = document.getElementById('nbTime').value;
@@ -2420,7 +2426,10 @@
           App.call('adminCreateBooking', App.getSession(), sel.value, cat, utc, { useCredit: useCredit })
             .then(function (r) {
               closeMyModal();
-              if (r && r.ok) { App.toast('예약했습니다.'); loadProxySlots(); }
+              if (r && r.ok) {
+                App.toast('예약했습니다.' + adminMailNote(r, '확정'), r.mail_sent === false);
+                loadProxySlots();
+              }
               else if (r && r.code === 'NO_CREDITS') { App.toast('이 학생은 남은 크레딧이 없습니다.', true); }
               else { App.toast('예약 실패', true); }
             }).catch(function () { closeMyModal(); App.toast('예약 실패', true); });
