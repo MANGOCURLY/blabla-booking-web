@@ -420,6 +420,13 @@
             <span class="range" id="nbWeekRange"></span>
             <button class="btn ghost sm" id="nbNextWeek">다음주 ›</button>
           </div>
+          <!-- 추천 시간은 정각뿐이라 9:30 같은 시각은 여기서 직접 넣는다 -->
+          <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
+            <span style="font-size:.85rem">직접 입력</span>
+            <input type="date" id="nbDate" class="tf" style="width:auto">
+            <input type="time" id="nbTime" class="tf" step="900" style="width:auto">
+            <button class="btn sm" id="nbManualBtn">이 시간으로</button>
+          </div>
         </div>
         <div id="nbSlots" style="margin-top:14px"></div>
       </div>
@@ -744,6 +751,7 @@
       document.getElementById('b2bSubmit').onclick = createB2bBooking;
       document.getElementById('nbPrevWeek').onclick = function () { nbWeekOffset--; loadProxySlots(); };
       document.getElementById('nbNextWeek').onclick = function () { nbWeekOffset++; loadProxySlots(); };
+      document.getElementById('nbManualBtn').onclick = proxyPickManual;
       document.getElementById('logoutBtn').onclick = function () {
         App.logout();
         myData = null;
@@ -2380,6 +2388,18 @@
           b.onclick = function () { proxyConfirm(b.getAttribute('data-utc'), b.getAttribute('data-lbl')); };
         });
       }).catch(function () { el.innerHTML = '<p class="muted">' + App.t('no_slots') + '</p>'; });
+    }
+
+    function proxyPickManual() {
+      var ymd = document.getElementById('nbDate').value;
+      var hm = document.getElementById('nbTime').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) || !/^\d{2}:\d{2}$/.test(hm)) {
+        App.toast('날짜와 시간을 입력하세요.', true); return;
+      }
+      var utc = wallToUtcIso(ymd, hm, App.tz);
+      if (!utc) { App.toast('시간이 올바르지 않습니다.', true); return; }
+      if (new Date(utc).getTime() <= Date.now()) { App.toast('지난 시각으로는 예약할 수 없습니다.', true); return; }
+      proxyConfirm(utc, ymd.split('-').reverse().join('/') + ' ' + hm + ' (' + App.tz + ')');
     }
 
     function proxyConfirm(utc, label) {
